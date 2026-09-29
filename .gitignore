@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+vectorstore_db/
+data/raw/*.pdf
+data/processed/*
+.env
+.DS_Store
+Thumbs.db
