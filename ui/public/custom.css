@@ -1,0 +1,45 @@
+/*
+ * Asesor Fiscal IA — ajustes visuales menores.
+ * Los tokens de color viven en public/theme.json (fuente única de la paleta).
+ * Este archivo solo pule detalles globales; nada dependiente de clases internas
+ * de Chainlit (para que un cambio de versión no rompa la interfaz).
+ */
+
+/* --- Barras de desplazamiento sobrias --- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(210 14% 80%) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(210 14% 80%);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(210 14% 65%);
+  background-clip: padding-box;
+}
+
+/* --- Selección de texto con la identidad del producto (teal suave) --- */
+::selection {
+  background: hsl(172 45% 88%);
+  color: hsl(220 25% 12%);
+}
+
+/* --- Foco visible y consistente (token --ring: ámbar cálido) --- */
+:focus-visible {
+  outline: 2px solid hsl(36 90% 42%);
+  outline-offset: 1px;
+}
