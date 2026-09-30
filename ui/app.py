@@ -5,7 +5,7 @@ UI orchestrator. Contains NO RAG logic: every query goes through
 
 Question flow:
     on_message → validation → cl.Step(processing state) → adapter
-    → answer | no information | error → sources block.
+    → answer | no information | error → collapsible sources panel.
 """
 
 from __future__ import annotations
@@ -203,12 +203,12 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
-async def _answer_question(question: str) -> None:
-    documents = _get_documents()
-    if not documents:
-        await _notify(fmt.format_no_documents(), actions=[_load_action()])
-        return
+async def _query_engine(question: str) -> Tuple[RAGResponse | None, str | None]:
+    """Runs the adapter inside a retrieval Step.
 
+    Returns ``(response, error_kind)``; ``error_kind`` is ``None`` on success.
+    """
+    documents = _get_documents()
     adapter = RagAdapter()
     response: RAGResponse | None = None
     error_kind: str | None = None
@@ -218,6 +218,8 @@ async def _answer_question(question: str) -> None:
     # Note: the Step name is used as avatar (/avatars/<name>) and that
     # endpoint rejects accents and symbols → ASCII name ("Buscando fuentes").
     async with cl.Step(name="Buscando fuentes", type="retrieval") as step:
+        step.output = "Consultando la base documental…"
+        await step.update()
         try:
             raw = await adapter.ask(question, documents)
             response = adapter.format_response(raw)
@@ -235,19 +237,50 @@ async def _answer_question(question: str) -> None:
                 step.output = f"Recuperado: {_plural(n_sources, 'fragmento')}"
             else:
                 step.output = "Sin resultados en la documentación"
+        await step.update()
+    return response, error_kind
 
+
+async def _sources_panel(response: RAGResponse) -> None:
+    """Collapsible traceability panel (native Chainlit accordion).
+
+    Renders document · page · section · exact snippet inside a ``cl.Step``
+    so the main thread stays tidy. The step name feeds ``/avatars/<name>``
+    → ASCII only; the count is visible in the name (collapsed) and in the
+    output title (expanded).
+    """
+    if not response.sources:
+        return
+    n = len(response.sources)
+    async with cl.Step(
+        name=f"Fuentes utilizadas {n}",
+        type="tool",
+        default_open=False,     # starts collapsed: does not clutter the chat
+        auto_collapse=True,     # folds again while navigating
+    ) as step:
+        step.output = fmt.format_sources_block(response.sources)
+
+
+async def _render_response(
+    response: RAGResponse | None, error_kind: str | None
+) -> None:
+    """Maps the engine result to the right UI state."""
     if error_kind or response is None:
         await _notify(fmt.format_error(error_kind or "unknown"))
         return
-
     if not response.grounded or not response.has_answer:
         await _notify(fmt.format_no_answer(response))
         return
-
     await _notify(fmt.format_answer(response))
-    sources_block = fmt.format_sources_block(response.sources)
-    if sources_block:
-        await _notify(sources_block)
+    await _sources_panel(response)
+
+
+async def _answer_question(question: str) -> None:
+    if not _get_documents():
+        await _notify(fmt.format_no_documents(), actions=[_load_action()])
+        return
+    response, error_kind = await _query_engine(question)
+    await _render_response(response, error_kind)
 
 
 # --------------------------------------------------------------------------- #
