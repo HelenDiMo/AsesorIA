@@ -1,0 +1,293 @@
+{
+  "_readme": "Actualizado tras verificar contra los PDF reales (IRPF 2025 Parte1/Parte2, IVA 2025, RDL 13/2022). Solo se pudieron verificar cifras de 2025 y las tablas 2023-2025 del RETA (estan las tres en el mismo PDF, dentro de la disposicion transitoria primera). Las preguntas puramente 2024 (q01, q05, q07-original) se han adaptado o mantenido como pendientes porque no se subieron los manuales de 2024: quedan marcadas [PENDIENTE_2024].",
+  "questions": [
+    {
+      "id": "q01",
+      "question": "¿Qué porcentaje de gastos de difícil justificación se aplica en estimación directa simplificada en 2024?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2024",
+      "expected_section": "",
+      "expected_year": 2024,
+      "note": "[PENDIENTE_2024] no verificable sin el manual de 2024; en 2025 es 5% (verificado, ManualRenta2025Parte1, pag. 449)"
+    },
+    {
+      "id": "q02",
+      "question": "¿Qué porcentaje de gastos de difícil justificación se aplica en estimación directa simplificada en 2025?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Cap. 7 Rendimientos de actividades económicas, estimación directa simplificada",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 5% sobre la diferencia de ingresos y gastos (art. 30 Reglamento IRPF). ManualRenta2025Parte1_es_es.pdf, pag. 449"
+    },
+    {
+      "id": "q03",
+      "question": "¿Puedo deducirme el gasto de combustible de mi vehículo como autónomo?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Cap. 6, elementos patrimoniales afectos a la actividad (excepcion vehiculos turismo)",
+      "expected_year": 2025,
+      "note": "VERIFICADO pero MATIZADO: la respuesta NO es un 'si' simple. Un automovil de turismo solo tiene la consideracion de bien afecto (y por tanto sus gastos, incluido combustible, son deducibles) si se usa EXCLUSIVAMENTE para la actividad, sin uso privado ni siquiera accesorio -- salvo excepciones tasadas (taxis, autoescuelas, representantes de comercio, etc.). ManualRenta2025Parte1_es_es.pdf, pag. 379. Buen caso para probar que el sistema no responde 'si' de forma simplista."
+    },
+    {
+      "id": "q04",
+      "question": "¿Qué porcentaje de los suministros de mi vivienda puedo deducir si trabajo desde casa?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Cap. 7, c. Suministros (art. 30.2.5ª.b Ley IRPF)",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 30% de la proporción m2 afectos / m2 totales. ManualRenta2025Parte1_es_es.pdf, pag. 439"
+    },
+    {
+      "id": "q05",
+      "question": "¿Qué tipo de IVA se aplica a los servicios profesionales generales en 2024?",
+      "category": "direct",
+      "expected_doc_id": "iva_manual_2024",
+      "expected_section": "",
+      "expected_year": 2024,
+      "note": "[PENDIENTE_2024] no verificable sin el manual de 2024; en 2025 es 21% (verificado)"
+    },
+    {
+      "id": "q06",
+      "question": "¿Qué tipo de IVA se aplica a los servicios profesionales generales en 2025?",
+      "category": "direct",
+      "expected_doc_id": "iva_manual_2025",
+      "expected_section": "Tipos impositivos, tipo general",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 21%. Manual_IVA_2025.pdf, pag. 119"
+    },
+    {
+      "id": "q07",
+      "question": "¿Cuándo debo presentar el modelo 303 del primer trimestre de 2025?",
+      "category": "direct",
+      "expected_doc_id": "iva_manual_2025",
+      "expected_section": "Gestión del impuesto, plazos de presentación",
+      "expected_year": 2025,
+      "note": "VERIFICADO: del 1 al 20 de abril. Manual_IVA_2025.pdf, pag. 226"
+    },
+    {
+      "id": "q08",
+      "question": "¿Qué régimen de IVA me corresponde si soy autónomo de bajo volumen de facturación en 2024?",
+      "category": "direct",
+      "expected_doc_id": "iva_manual_2024",
+      "expected_section": "",
+      "expected_year": 2024,
+      "note": "[PENDIENTE_2024]"
+    },
+    {
+      "id": "q09",
+      "question": "¿Cuál es la base mínima de cotización en el tramo 1 de la tabla reducida de autónomos en 2024?",
+      "category": "direct",
+      "expected_doc_id": "reta_rdl_13_2022_2024",
+      "expected_section": "Disposición transitoria primera, tabla reducida 2024",
+      "expected_year": 2024,
+      "note": "VERIFICADO: 735,29 euros/mes (tramo <=670, base minima). RDL_13_2022_RETA.pdf, pag. 59. NOTA: es la BASE, no la cuota final (el tipo de cotizacion no figura en este documento)"
+    },
+    {
+      "id": "q10",
+      "question": "¿Cuál es la base mínima de cotización en el tramo 1 de la tabla reducida de autónomos en 2025?",
+      "category": "direct",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera, tabla reducida 2025",
+      "expected_year": 2025,
+      "note": "VERIFICADO: base minima 653,59 EUR/mes (RDL 13/2022, pag. 60). Tipo total autonomos 2025 = 31,40% (28,30% CC + 1,30% CP + 0,90% cese + 0,10% FP + 0,80% MEI, Orden PJC/178/2025 arts. 18 y 37). Cuota resultante ~205,23 EUR/mes (calculo propio, no cifra literal del BOE)."
+    },
+    {
+      "id": "q11",
+      "question": "¿Cuántos tramos de cotización existen en total (tabla reducida + tabla general) en el sistema de ingresos reales?",
+      "category": "direct",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 15 tramos (3 de tabla reducida + 12 de tabla general). RDL_13_2022_RETA.pdf, pag. 59-60"
+    },
+    {
+      "id": "q12",
+      "question": "¿Cómo se determina el tramo de cotización que corresponde a un autónomo en 2024?",
+      "category": "direct",
+      "expected_doc_id": "reta_rdl_13_2022_2024",
+      "expected_section": "Art. 308.1 texto refundido LGSS / RDL 13/2022 Disposicion transitoria primera",
+      "expected_year": 2024,
+      "note": "VERIFICADO: según el promedio mensual de rendimientos netos anuales dentro de la tabla general o reducida"
+    },
+    {
+      "id": "q13",
+      "question": "¿Puedo deducirme las cuotas del RETA en mi declaración de IRPF de 2025?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Cap. 7, Gastos de personal / cotizaciones a la Seguridad Social como gasto deducible",
+      "expected_year": 2025,
+      "note": "VERIFICADO: las cuotas del RETA son gasto deducible. Ademas, si la regularizacion anual de cuotas (segun rendimientos reales) genera un pago adicional, se declara como mayor gasto deducible (casilla 0196); si genera una devolucion, como menor gasto deducible (casilla 0197) o, si excede lo pagado, como mayor rendimiento (casilla 0178). ManualRenta2025Parte1_es_es.pdf, pag. 448."
+    },
+    {
+      "id": "q14",
+      "question": "¿Qué gastos de personal son deducibles en el IRPF de 2025 para un autónomo con empleados?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Cap. 7, Gastos de personal (sueldos y salarios, seguridad social a cargo de la empresa, otros gastos de personal)",
+      "expected_year": 2025,
+      "note": "VERIFICADO: seccion '3. Gastos de personal' con subapartados (sueldos y salarios, etc.). ManualRenta2025Parte1_es_es.pdf, pag. 448."
+    },
+    {
+      "id": "q15",
+      "question": "¿Cuál es el límite de dietas por manutención sin pernoctar en España para un autónomo en 2025?",
+      "category": "direct",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "Fase 1ª. Determinación del rendimiento neto, gastos de manutención del profesional (art. 30.2.5ª Ley IRPF)",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 26,67 euros/día en España sin pernoctar; 53,34 euros/día pernoctando. ManualRenta2025Parte1_es_es.pdf, pag. 435"
+    },
+    {
+      "id": "q16",
+      "question": "¿Qué libros registro debe llevar un autónomo en estimación directa simplificada en IVA de 2025?",
+      "category": "direct",
+      "expected_doc_id": "iva_manual_2025",
+      "expected_section": "Cap. 10, Obligaciones en materia de Libros Registro en el IVA",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 4 libros -- Libro Registro de facturas expedidas, de facturas recibidas, de bienes de inversion, y de determinadas operaciones intracomunitarias. Manual_IVA_2025.pdf, pag. 328."
+    },
+    {
+      "id": "q17",
+      "question": "¿Ha cambiado la base mínima de cotización del tramo 1 de la tabla reducida de autónomos entre 2024 y 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera",
+      "expected_year": 2025,
+      "note": "VERIFICADO: sí, ha bajado de 735,29€ (2024) a 653,59€ (2025). RDL_13_2022_RETA.pdf, pag. 59-60"
+    },
+    {
+      "id": "q18",
+      "question": "¿Ha cambiado la base mínima de cotización del tramo 1 de la tabla GENERAL de autónomos entre 2024 y 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera",
+      "expected_year": 2025,
+      "note": "VERIFICADO: no, se mantiene en 950,98€ tanto en 2024 como en 2025 — buen caso para probar que el sistema no invente un cambio que no existe"
+    },
+    {
+      "id": "q19",
+      "question": "¿Cuál es la diferencia entre la base mínima de cotización del tramo 1 de la tabla reducida en 2024 y en 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 735,29 - 653,59 = 81,70 euros/mes menos en 2025"
+    },
+    {
+      "id": "q20",
+      "question": "¿Ha cambiado el porcentaje de gastos de difícil justificación entre 2024 y 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "irpf_manual_2025_p1",
+      "expected_section": "",
+      "expected_year": 2025,
+      "note": "[PENDIENTE_2024] necesita el manual 2024 para comparar; en 2025 es 5%"
+    },
+    {
+      "id": "q21",
+      "question": "¿Se ha modificado el tipo general de IVA entre 2024 y 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "iva_manual_2025",
+      "expected_section": "",
+      "expected_year": 2025,
+      "note": "[PENDIENTE_2024] en 2025 es 21%, comparar con manual 2024"
+    },
+    {
+      "id": "q22",
+      "question": "¿Ha cambiado la base máxima de cotización del tramo más alto de la tabla general entre 2024 y 2025?",
+      "category": "year_dependent",
+      "expected_doc_id": "reta_rdl_13_2022_2025",
+      "expected_section": "Disposición transitoria primera",
+      "expected_year": 2025,
+      "note": "VERIFICADO: no, se mantiene en 4.139,40€ en ambos años"
+    },
+    {
+      "id": "q23",
+      "question": "¿Puedo deducirme una embarcación de recreo como gasto de representación de mi negocio?",
+      "category": "no_answer",
+      "note": ""
+    },
+    {
+      "id": "q24",
+      "question": "¿Qué deducción fiscal existe por comprar criptomonedas como inversión personal?",
+      "category": "no_answer",
+      "note": ""
+    },
+    {
+      "id": "q25",
+      "question": "¿Cómo tributa un autónomo que reside en Andorra pero factura a clientes españoles?",
+      "category": "no_answer",
+      "note": ""
+    },
+    {
+      "id": "q26",
+      "question": "¿Qué bonificación existe para autónomos que contraten a un familiar menor de edad a tiempo parcial en tareas domésticas?",
+      "category": "no_answer",
+      "note": ""
+    },
+    {
+      "id": "q27",
+      "question": "¿Cuánto tendré que pagar exactamente de IVA este trimestre según mis facturas?",
+      "category": "personal_case",
+      "note": ""
+    },
+    {
+      "id": "q28",
+      "question": "¿En qué tramo de cotización de autónomos me corresponde estar según mis ingresos del año pasado?",
+      "category": "personal_case",
+      "note": ""
+    },
+    {
+      "id": "q29",
+      "question": "¿Qué tiempo va a hacer este fin de semana en Madrid?",
+      "category": "out_of_scope",
+      "note": ""
+    },
+    {
+      "id": "q30",
+      "question": "¿Puedes recomendarme un buen restaurante para una comida de negocios?",
+      "category": "out_of_scope",
+      "note": ""
+    },
+    {
+      "id": "q31",
+      "question": "¿Cuál es el tipo de cotización total que se aplica a la base de un autónomo en 2025, sumando todos los conceptos obligatorios?",
+      "category": "direct",
+      "expected_doc_id": "reta_orden_cotizacion_2025",
+      "expected_section": "Art. 18.2 (contingencias comunes, profesionales, MEI) y Art. 37.5-37.6 (cese de actividad, formación profesional)",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 28,30% + 1,30% + 0,90% + 0,10% + 0,80% = 31,40%. Buen caso para probar que el sistema suma varios fragmentos de la MISMA norma en vez de devolver solo uno."
+    },
+    {
+      "id": "q32",
+      "question": "¿Qué porcentaje corresponde al mecanismo de equidad intergeneracional (MEI) para autónomos en 2025, y es el mismo que en 2024?",
+      "category": "year_dependent",
+      "expected_doc_id": "reta_orden_cotizacion_2025",
+      "expected_section": "Art. 18.2.c",
+      "expected_year": 2025,
+      "note": "VERIFICADO: 0,80% en 2025 (Orden PJC/178/2025, art. 18.2.c) frente a 0,70% en 2024 (Orden PJC/51/2024) -- fuente secundaria para 2024, sin PDF oficial cargado todavia."
+    },
+    {
+      "id": "q33",
+      "question": "Voy a darme de baja como autónomo el día 15 de este mes, ¿cuánto tendré que pagar de cuota ese mes?",
+      "category": "personal_case",
+      "note": "Trampa: aunque el RDL 13/2022 SI regula el prorrateo por alta/baja a mitad de mes (dato general), el importe final depende de la base de cotizacion elegida por ESTA persona en concreto. El sistema debe explicar la regla de prorrateo sin calcular una cifra final personalizada."
+    },
+    {
+      "id": "q34",
+      "question": "Si este año voy a facturar 45.000 euros con 12.000 euros de gastos, ¿cuánto pagaré aproximadamente de IRPF?",
+      "category": "personal_case",
+      "note": "Trampa: pide un calculo end-to-end con datos personales concretos (tramos de IRPF, minimo personal, otras rentas no mencionadas). El sistema no debe simular una liquidacion completa; debe explicar el metodo general y remitir a un profesional o a la Agencia Tributaria."
+    },
+    {
+      "id": "q35",
+      "question": "Voy a constituir una Sociedad Limitada en vez de seguir como autónomo, ¿qué tipo de Impuesto de Sociedades pagaría?",
+      "category": "out_of_scope",
+      "note": "Trampa por proximidad: suena fiscal y hasta lo menciona el propio corpus de pasada (comparaciones autonomo vs SL), pero el Impuesto de Sociedades es un tributo distinto del IRPF/IVA/RETA y no esta cubierto por ninguno de los documentos del corpus. Riesgo real: un LLM podria 'saber' el tipo general de sociedades (25%) de su conocimiento general y responder sin citar fuente -- exactamente lo que el grounding debe impedir."
+    },
+    {
+      "id": "q36",
+      "question": "Un cliente no me ha pagado una factura desde hace tres meses, ¿qué pasos legales puedo seguir para reclamarla?",
+      "category": "out_of_scope",
+      "note": "Trampa por proximidad: la palabra 'factura' aparece por todas partes en el corpus de IVA, pero la pregunta es de derecho mercantil/civil (reclamacion de deudas), no de fiscalidad. Debe rechazarse aunque el retriever devuelva fragmentos sobre facturas del manual de IVA."
+    }
+  ]
+}
