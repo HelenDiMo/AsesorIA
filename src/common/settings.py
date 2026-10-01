@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
 
     embedding_model: str = "intfloat/multilingual-e5-base"
+    # Valores asociados al modelo: revisar el prefijo si se cambia E5.
+    embedding_passage_prefix: str = "passage: "
+    embedding_max_tokens: int | None = None  # Por defecto, límite del tokenizer.
+
+    # Sin configuración ganadora: seleccionar explícitamente para experimentar.
+    chunk_size_tokens: int | None = None
+    chunk_overlap_tokens: int | None = None
 
     chroma_dir: str = str(PROJECT_ROOT / "chroma_db")
     chroma_collection: str = "tax_corpus"
