@@ -4,14 +4,50 @@ Conecta el retriever vectorial con las directrices de grounding estricto y el LL
 asegurando trazabilidad documental (citas y fuentes).
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.vectorstores import VectorStoreRetriever
 
+from src.common.settings import get_settings
 from src.retrieval.prompts import CHAT_QA_PROMPT
+
+
+def get_llm() -> BaseChatModel:
+    """
+    Instancia el LLM según la configuración del entorno (Settings).
+    Soporta 'anthropic' y 'ollama'.
+    """
+    settings = get_settings()
+    provider = settings.llm_provider.lower().strip()
+
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+
+        model_name = settings.llm_model or "claude-3-5-sonnet-latest"
+        return ChatAnthropic(
+            model=model_name,
+            temperature=settings.llm_temperature,
+            timeout=settings.llm_timeout_seconds,
+        )
+
+    elif provider == "ollama":
+        from langchain_ollama import ChatOllama
+
+        model_name = settings.llm_model or "qwen2.5:7b"
+        return ChatOllama(
+            base_url=settings.ollama_base_url,
+            model=model_name,
+            temperature=settings.llm_temperature,
+        )
+
+    else:
+        raise ValueError(
+            f"Proveedor de LLM no soportado: '{provider}'. "
+            "Valores válidos en .env: 'anthropic', 'ollama'."
+        )
 
 
 def format_docs(docs: List[Document]) -> str:
@@ -38,9 +74,14 @@ class RAGPipeline:
     Integra el retriever, el prompt anti-alucinaciones y el LLM mediante LCEL.
     """
 
-    def __init__(self, retriever: VectorStoreRetriever, llm: BaseChatModel):
+    def __init__(
+        self,
+        retriever: VectorStoreRetriever,
+        llm: Optional[BaseChatModel] = None,
+    ):
         self.retriever = retriever
-        self.llm = llm
+        # Si no se pasa un LLM explícito (como en producción/UI), se instancia desde settings
+        self.llm = llm if llm is not None else get_llm()
         self._build_chain()
 
     def _build_chain(self):
