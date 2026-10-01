@@ -1,9 +1,29 @@
+# --- Orchestration / RAG ---
 langchain>=0.2.0
 langchain-community>=0.2.0
-langchain-openai>=0.1.0
 chromadb>=0.5.0
-pypdf>=4.2.0
+
+# --- LLM providers (install only the one you use) ---
+langchain-openai>=0.1.0
+
+# --- Document processing ---
+pypdf>=4.0
+pdfplumber>=0.11
+
+# --- Backend ---
+pydantic>=2.6
+pydantic-settings>=2.2
 python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# --- Frontend ---
 chainlit>=1.1.0
+
+# --- Evaluation / tooling ---
 pytest>=8.0.0
 pytest-asyncio>=1.0.0
+
+
+# --- Token counting (no model weights required) ---
+transformers>=4.45,<5
+sentencepiece>=0.2,<0.3
