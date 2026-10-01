@@ -23,3 +23,7 @@ chainlit>=1.1.0
 pytest>=8.0.0
 pytest-asyncio>=1.0.0
 
+
+# --- Token counting (no model weights required) ---
+transformers>=4.45,<5
+sentencepiece>=0.2,<0.3
