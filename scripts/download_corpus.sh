@@ -20,7 +20,7 @@ curl -fL -o data/raw/RDL_08_2015_LGSS.pdf \
   "https://www.boe.es/buscar/pdf/2015/BOE-A-2015-11724-consolidado.pdf"
 curl -fL -o data/raw/LETA_20_2007.pdf \
   "https://www.boe.es/buscar/pdf/2007/BOE-A-2007-13409-consolidado.pdf"
-curl -fL -o data/raw/RDL_13_2022_RETA.pdf \
+curl -fL -o data/raw/RDL_13_2022_RegimenCotizacion_RETA.pdf \
   "https://www.boe.es/boe/dias/2022/07/27/pdfs/BOE-A-2022-12482.pdf"
 curl -fL -o data/raw/PJC_178_2025_OrdenCotizacion_RETA.pdf \
   "https://www.boe.es/buscar/pdf/2025/BOE-A-2025-3780-consolidado.pdf"
