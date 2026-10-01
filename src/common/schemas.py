@@ -49,6 +49,7 @@ class ChunkMetadata(BaseModel):
     section_label: str = ""
     section_path: str = ""
     page: int = 0
+    page_end: int = 0
     source_url: str = ""
     retrieved_at: str = ""
     source_scope: Scope
@@ -84,6 +85,7 @@ class Source(BaseModel):
     doc_id: str
     section_label: str
     page: int
+    page_end: int = 0
     fiscal_year: int
     source_url: str
     snippet: str
