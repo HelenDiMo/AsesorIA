@@ -23,7 +23,7 @@ def get_llm() -> BaseChatModel:
     provider = settings.llm_provider.lower().strip()
 
     if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
+        from langchain_community.chat_models import ChatAnthropic
 
         model_name = settings.llm_model or "claude-3-5-sonnet-latest"
         return ChatAnthropic(
@@ -33,13 +33,22 @@ def get_llm() -> BaseChatModel:
         )
 
     elif provider == "ollama":
-        from langchain_ollama import ChatOllama
+        from langchain_community.chat_models import ChatOllama
 
         model_name = settings.llm_model or "qwen2.5:7b"
         return ChatOllama(
             base_url=settings.ollama_base_url,
             model=model_name,
             temperature=settings.llm_temperature,
+        )
+    elif provider == "openai":
+        from langchain_openai import ChatOpenAI
+
+        model_name = settings.llm_model or "gpt-4o-mini"
+        return ChatOpenAI(
+            model=model_name,
+            temperature=settings.llm_temperature,
+            timeout=settings.llm_timeout_seconds,
         )
 
     else:
