@@ -116,29 +116,41 @@ ni un registro de versiones de modelos en esta primera capa.
   umbral. El resultado puede tener menos de k elementos o estar vacío.
 - La búsqueda HNSW es aproximada. Las pruebas técnicas no certifican calidad fiscal.
 
-## Filtros y privacidad: decisión pendiente con Helen
+## Filtros y privacidad por instancia
 
-filter_dict admite la sintaxis nativa de Chroma ($eq, $in, $and, $or, etc.). Para varios
-campos, usar $and explícito. Se valida y se copia para no depender de mutaciones externas.
-Siempre se combina con `source_scope == public` mediante AND. Un filtro opcional nunca
-amplía ese ámbito. También se descartan resultados que no tengan scope público explícito.
+get_retriever(..., session_id=None) devuelve solo documentos públicos.
+Con session_id='A', devuelve públicos y privados con session_id exactamente 'A'.
+El backend debe validar la sesión antes de construir el retriever y asignar esa
+misma identidad correctamente a los documentos privados durante la ingesta.
+Esta capa comprueba el tipo y rechaza cadenas vacías; no autentica usuarios.
+No normaliza ni recorta identificadores: la comparación es exacta.
 
-La ingesta admite documentos privados con session_id no vacío y conserva su trazabilidad.
-SIN EMBARGO, la recuperación privada está deshabilitada en este retriever. Invocar solo
-con una pregunta no acredita quién pregunta; pasar filter_dict={'session_id': ...}
-no autentica ni garantiza aislamiento. AskRequest tiene session_id, pero el
-pipeline integrado recibe solo answer_query(question): no lo transfiere ni valida. Tampoco se interpreta RunnableConfig como
-una autorización implícita.
+```python
+retriever = get_retriever(vectorstore=store, session_id=session_validada)
+pipeline = RAGPipeline(retriever=retriever, llm=mi_llm)
+resultado = pipeline.answer_query('Mi pregunta')
+```
 
-Alternativas pendientes:
-1. Vincular un retriever a una sesión validada al construirlo, conservando invoke(question).
-2. Ampliar explícitamente la entrada del pipeline/retriever con contexto de sesión validado.
+RAGPipeline y invoke(question) permanecen intactos. Cada instancia conserva su
+sesión; la propiedad pública session_id no tiene setter. Crear una instancia nueva
+para otra sesión. No compartir el retriever ni el pipeline que lo contiene entre
+sesiones. Sí se puede compartir el vectorstore y el servicio de embeddings.
+La propiedad de solo lectura previene cambios accidentales: no es una barrera
+contra código de backend con acceso a los atributos internos de Python.
 
-Propuesta mínima: opción 1, con un parámetro session_id proporcionado por el backend
-tras validar la sesión; combinar de forma obligatoria public OR (private AND sesión).
-Nunca reutilizar esa instancia entre sesiones. No está implementada hasta acordar
-quién valida y propaga la sesión. Las pruebas actuales demuestran exclusión de
-privados, no autorización ni acceso privado aislado entre sesiones.
+El filtro obligatorio es public OR (private AND session_id autorizado).
+filter_dict admite la sintaxis nativa de Chroma y se combina mediante AND con
+ese filtro obligatorio. Se valida y copia: solo puede reducir el acceso, nunca
+ampliarlo, aunque contenga $or o solicite otra sesión. Se aplica antes del top-k.
+Además, se revisa la autorización de los metadatos devueltos: privados sin sesión,
+registros de otras sesiones y ámbitos desconocidos se descartan.
+RunnableConfig y kwargs de invoke no cambian la sesión autorizada.
+
+La aplicación debe proporcionar la sesión validada al construir el retriever;
+no debe tomar un identificador arbitrario del cliente como autorización. Este es
+el punto de integración pendiente en la aplicación, no un cambio del pipeline.
+Las pruebas usan Chroma temporal, vectores y LLM simulados para comprobar sesiones
+A/B, acceso público, filtros adversos y la conexión con el pipeline real.
 
 Chroma local no es una barrera frente a quien tenga acceso directo a sus archivos o
 al cliente de infraestructura. La carpeta predeterminada chroma_db está excluida de Git;

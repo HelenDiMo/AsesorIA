@@ -130,3 +130,71 @@ def test_real_pipeline_connection(store, service, has_documents):
     else:
         assert result['source_documents'] == []
         assert format_docs([]) == 'No se encontraron documentos relevantes.'
+
+
+@pytest.mark.parametrize('session,expected', [(None, {'public'}), ('A', {'public', 'private_A'}),
+                                            ('B', {'public', 'private_B'})])
+def test_session_access_and_pipeline(store, service, session, expected):
+    from src.rag.pipeline import RAGPipeline
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    store.add_chunks([make_chunk('public'), make_chunk('private_A', source_scope='private', session_id='A'),
+                      make_chunk('private_B', source_scope='private', session_id='B')])
+    retriever = get_retriever(top_k=10, score_threshold=None, vectorstore=store, session_id=session)
+    pipeline = RAGPipeline(retriever, llm=FakeListChatModel(responses=['Simulada']))
+    docs = pipeline.answer_query('Pregunta')['source_documents']
+    assert {d.metadata['doc_id'] for d in docs} == expected
+    service.embed_query.assert_called_once_with('Pregunta')
+
+
+@pytest.mark.parametrize('external,expected', [
+    ({'session_id': 'B'}, set()),
+    ({'source_scope': 'private'}, {'private_A'}),
+    ({'$or': [{'source_scope': 'public'}, {'source_scope': 'private'}]}, {'public', 'private_A'}),
+    ({'$or': [{'session_id': 'B'}, {'source_scope': 'public'}]}, {'public'}),
+])
+def test_external_filter_cannot_expand_session(store, external, expected):
+    store.add_chunks([make_chunk('public'), make_chunk('private_A', source_scope='private', session_id='A'),
+                      make_chunk('private_B', source_scope='private', session_id='B')])
+    retriever = get_retriever(10, None, external, vectorstore=store, session_id='A')
+    external.clear()
+    assert {d.metadata['doc_id'] for d in retriever.invoke('Pregunta')} == expected
+
+
+def test_security_filter_precedes_top_k_and_instances_stay_separate(store, service):
+    service.embed_documents.side_effect = lambda texts: [[0, 1], [0.6, 0.8], [1, 0]]
+    store.add_chunks([make_chunk('public'), make_chunk('private_A', source_scope='private', session_id='A'),
+                      make_chunk('private_B', source_scope='private', session_id='B')])
+    a = get_retriever(1, None, vectorstore=store, session_id='A')
+    b = get_retriever(1, None, vectorstore=store, session_id='B')
+    for retriever, expected in [(a, 'private_A'), (b, 'private_B'), (a, 'private_A')]:
+        assert retriever.invoke('Pregunta')[0].metadata['doc_id'] == expected
+    with pytest.raises(AttributeError):
+        a.session_id = 'B'
+    assert a.invoke('Pregunta', config={'configurable': {'session_id': 'B'}}, session_id='B')[0].metadata['doc_id'] == 'private_A'
+
+
+@pytest.mark.parametrize('session,error', [('', ValueError), ('  ', ValueError), (42, TypeError), (False, TypeError)])
+def test_invalid_session_id(store, session, error):
+    with pytest.raises(error):
+        get_retriever(vectorstore=store, session_id=session)
+
+
+def test_session_comparison_is_exact(store):
+    store.add_chunks([make_chunk('A', source_scope='private', session_id='A'),
+                      make_chunk('a', source_scope='private', session_id='a'),
+                      make_chunk('spaced', source_scope='private', session_id=' A ')])
+    docs = get_retriever(10, None, vectorstore=store, session_id=' A ').invoke('Pregunta')
+    assert [doc.metadata['doc_id'] for doc in docs] == ['spaced']
+
+
+def test_defensive_authorization_rejects_malformed_and_other_session_results():
+    store = Mock()
+    metadata = [{'doc_id': 'public', 'source_scope': 'public'},
+                {'doc_id': 'A', 'source_scope': 'private', 'session_id': 'A'},
+                {'doc_id': 'B', 'source_scope': 'private', 'session_id': 'B'},
+                {'doc_id': 'missing', 'source_scope': 'private'},
+                {'doc_id': 'unknown', 'source_scope': 'other', 'session_id': 'A'}, None]
+    store.query.return_value = {'documents': [['text'] * len(metadata)],
+                               'metadatas': [metadata], 'distances': [[0] * len(metadata)]}
+    docs = get_retriever(10, None, vectorstore=store, session_id='A').invoke('Pregunta')
+    assert [doc.metadata['doc_id'] for doc in docs] == ['public', 'A']

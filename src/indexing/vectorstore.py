@@ -74,7 +74,7 @@ class VectorStore:
         """Consulta por vector; devuelve distancias cosine, no similitudes.
 
         API de infraestructura sin aislamiento de sesión. El retriever aplica
-        la política pública; no exponer este método directamente a usuarios.
+        la política de acceso de su sesión; no exponer este método directamente a usuarios.
         """
         if type(top_k) is not int or top_k <= 0:
             raise ValueError("top_k debe ser un entero positivo")
