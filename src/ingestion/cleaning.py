@@ -27,7 +27,6 @@ def clean_text(text: str) -> str:
     """Fix hyphenated line breaks, collapse whitespace, keep paragraph breaks."""
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)           # de-hyphenate
     text = re.sub(r"[ \t]+", " ", text)                    # collapse spaces
-    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)           # single newline -> space
     text = re.sub(r"\n{3,}", "\n\n", text)                 # cap blank lines
     return text.strip()
 
