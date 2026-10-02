@@ -19,3 +19,6 @@ Thumbs.db
 /.chainlit/
 .env.*
 !.env.example
+
+# Chroma local persistente (incluye potenciales documentos privados)
+/chroma_db/
