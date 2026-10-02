@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.vectorstores import VectorStoreRetriever
 
 from src.common.settings import get_settings
@@ -50,10 +49,24 @@ def get_llm() -> BaseChatModel:
         )
 
 
+def _format_page_reference(metadata: Dict[str, Any]) -> str:
+    """Formatea la referencia de página considerando rangos (page y page_end)."""
+    page_start = metadata.get("page")
+    page_end = metadata.get("page_end")
+
+    if page_start is None:
+        return "Pág. N/A"
+
+    if page_end is not None and page_end != page_start:
+        return f"Págs. {page_start}–{page_end}"
+
+    return f"Pág. {page_start}"
+
+
 def format_docs(docs: List[Document]) -> str:
     """
     Formatea los fragmentos recuperados en un bloque de texto legible para el LLM,
-    incluyendo de forma explícita los metadatos de origen (fuente y página).
+    incluyendo de forma explícita los metadatos de origen (fuente y página/rango).
     """
     if not docs:
         return "No se encontraron documentos relevantes."
@@ -61,8 +74,8 @@ def format_docs(docs: List[Document]) -> str:
     formatted_blocks = []
     for i, doc in enumerate(docs, start=1):
         source = doc.metadata.get("source", "Documento desconocido")
-        page = doc.metadata.get("page", "N/A")
-        block = f"[Fragmento {i}] - Fuente: {source} (Pág. {page})\n{doc.page_content}"
+        page_str = _format_page_reference(doc.metadata)
+        block = f"[Fragmento {i}] - Fuente: {source} ({page_str})\n{doc.page_content}"
         formatted_blocks.append(block)
 
     return "\n\n".join(formatted_blocks)
