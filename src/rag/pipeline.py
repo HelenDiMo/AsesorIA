@@ -54,7 +54,7 @@ def get_llm() -> BaseChatModel:
     else:
         raise ValueError(
             f"Proveedor de LLM no soportado: '{provider}'. "
-            "Valores válidos en .env: 'anthropic', 'ollama'."
+            "Valores válidos en .env: 'anthropic', 'ollama', 'openai'."
         )
 
 
