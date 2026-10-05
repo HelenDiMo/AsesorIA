@@ -1,8 +1,10 @@
 /*
  * Asesor Fiscal IA — ajustes visuales menores.
  * Los tokens de color viven en public/theme.json (fuente única de la paleta).
- * Este archivo solo pule detalles globales; nada dependiente de clases internas
- * de Chainlit (para que un cambio de versión no rompa la interfaz).
+ * Este archivo solo pule detalles globales. Única excepción documentada: la
+ * regla del chip de estado de los pasos (§16), que usa el id público
+ * `step-*`; si una versión futura de Chainlit cambia el marcado, la regla
+ * deja de aplicar y solo vuelve a verse el chip (degradación cosmética).
  */
 
 /* --- Barras de desplazamiento sobrias (slate) --- */
@@ -63,4 +65,13 @@ hr {
   border: none;
   border-top: 1px solid hsl(var(--border, 214 32% 91%));
   margin: 1rem 0;
+}
+
+/* --- Chip de estado interno de los pasos (§16) ---
+ * Chainlit 2.12 (Step.tsx) antepone <span>Usado/Usando</span> al título de
+ * cada paso (<button id="step-…"> o <p id="step-…">). El span es el primer
+ * hijo del elemento con id "step-*"; se oculta para que solo se vea el
+ * título del paso (p. ej. "Fuentes utilizadas 2" sigue desplegable). */
+[id^="step-"] > span:first-child {
+  display: none;
 }

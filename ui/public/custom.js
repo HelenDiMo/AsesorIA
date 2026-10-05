@@ -6,7 +6,7 @@
  * Defensive: if the selector or the string does not exist, it does nothing.
  */
 (function () {
-  var PLACEHOLDER = "Pregunta sobre tus obligaciones, gastos, IVA o IRPF…";
+  var PLACEHOLDER = "Pregunta sobre la documentación disponible…";
   var DEFAULT_MARK = "Escribe tu mensaje";
   var THEME_LABEL = ["Toggle theme", "Cambiar tema"];
   var STOP_NOTICE = [

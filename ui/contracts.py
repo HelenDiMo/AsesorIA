@@ -6,8 +6,8 @@ into these types so that app.py never touches raw backend objects.
 
 Normalization is deliberately tolerant: missing, ``None``, wrongly typed or
 object-shaped optional metadata must NEVER raise.  The UI degrades
-gracefully (page/section "no disponible", score omitted) instead of
-breaking.
+gracefully (missing page/section simply omitted from the header, score
+omitted) instead of breaking.
 """
 
 from __future__ import annotations
@@ -19,9 +19,13 @@ from typing import Any, Optional
 # Keys consulted (in order) when the canonical field is missing.  They cover
 # both the documented contract and common shapes produced by RAG backends
 # (LangChain-style documents use ``source``/``page_content``/``page``).
-_DOCUMENT_KEYS = ("document", "source", "filename", "file", "doc", "path")
+_DOCUMENT_KEYS = (
+    "document", "source", "filename", "file", "doc", "path", "source_url", "doc_id"
+)
 _CONTENT_KEYS = ("content", "text", "page_content", "chunk", "fragment")
-_SECTION_KEYS = ("section", "heading")
+# "section_label"/"section_path": the real retrieval metadata (PRs #25-#28)
+# never uses a plain ``section`` key; the canonical one is preferred first.
+_SECTION_KEYS = ("section", "section_label", "section_path", "heading")
 _PAGE_KEYS = ("page", "page_number", "pág", "pagina")
 _SCORE_KEYS = ("score", "relevance", "relevance_score", "similarity")
 
@@ -194,10 +198,16 @@ class RAGResponse:
         """Build a RAGResponse from a plain dict, normalizing sources.
 
         ``sources`` accepts a list, a tuple, a single source or ``None``.
+        When absent, the real backend key ``source_documents``
+        (``RAGPipeline.answer_query``) is used instead.
         ``grounded`` accepts booleans and common string encodings; when it
         is missing, a non-empty ``no_answer_reason`` implies ``False``.
         """
         raw_sources = data.get("sources")
+        if raw_sources is None:
+            # Real backend shape: RAGPipeline.answer_query() returns
+            # {"answer", "source_documents"} — no "sources" key.
+            raw_sources = data.get("source_documents")
         if raw_sources is None:
             source_list: list[Any] = []
         elif isinstance(raw_sources, (list, tuple, set)):
@@ -227,10 +237,15 @@ class RAGResponse:
             # never as the literal text "None".
             return cls(answer="", sources=[], grounded=False,
                        no_answer_reason="el motor no devolvió respuesta")
-        if hasattr(obj, "answer") or hasattr(obj, "sources"):
+        if (
+            hasattr(obj, "answer")
+            or hasattr(obj, "sources")
+            or hasattr(obj, "source_documents")
+        ):
             payload = {
                 "answer": getattr(obj, "answer", None) or getattr(obj, "text", None),
-                "sources": getattr(obj, "sources", None),
+                "sources": getattr(obj, "sources", None)
+                or getattr(obj, "source_documents", None),
                 "grounded": getattr(obj, "grounded", None),
                 "no_answer_reason": getattr(obj, "no_answer_reason", None)
                 or getattr(obj, "reason", None),

@@ -1,4 +1,8 @@
-# Asesor Fiscal IA - UI Module
+# Asesor Fiscal IA — Frontend (UX/UI)
+
+Frontend-only README: covers `ui/**` (interface, copy, adapter boundary,
+mock) and `tests/**` (frontend tests). The general project README lives at
+the repository root and is out of this document's scope.
 
 Chainlit user interface for the RAG system. **Contains no retrieval,
 embedding, prompt or LLM logic**: every query goes through the adapter.
@@ -19,7 +23,7 @@ ui/
 ├── .chainlit/config.toml  # Name, language, theme, CSS/JS, file upload
 ├── public/
 │   ├── theme.json         # Color tokens (light + dark) — ONLY place
-│   ├── custom.css         # Scrollbar, selection, focus ring
+│   ├── custom.css         # Scrollbar, selection, focus, step status chip
 │   ├── custom.js          # Custom editor placeholder
 │   ├── logo_light.svg     # Header logo (light theme)
 │   ├── logo_dark.svg      # Header logo (dark theme)
@@ -48,10 +52,11 @@ and `.chainlit/` resolve inside `ui/`.
 
 | State | When | Copy (summary) |
 |---|---|---|
-| Welcome | `on_chat_start` | Identity + 3 steps + grounding limit + demo-mode badge |
-| Documentation | A file is attached | `📄 Documentación disponible · N documentos` + list |
-| No documents | Question with no files | `📄 Todavía no hay documentación cargada` + upload button |
-| Processing | During the query | Step `Buscando fuentes` with `Recuperado: N fragmentos` |
+| Welcome | `on_chat_start` | Identity + upload CTA + `Cómo funciona` (3 steps) + grounding limit + demo badge |
+| Documentation | A file is attached | `📚 Documentación disponible · N documentos` + `✓ file` list |
+| Suggestions | Upload sent without a question | `**¿Qué quieres consultar?**` + 4 `💡` actions (only until the first question) |
+| No documents | Question with no files | `📚 Todavía no hay documentación cargada` + upload button |
+| Processing | During the query | Step `Consultando la documentacion` with output `🔎 Consultando la documentación…` |
 | Answer | `grounded=True` with sources | Answer + `📄 Fuentes utilizadas · N` |
 | No information | `grounded=False` or no sources | `ℹ️ No he encontrado información suficiente` + reason |
 | Error | Backend exception | `⚠️ No he podido conectar…` / `⚠️ Se ha producido un error técnico` |
@@ -67,16 +72,17 @@ Every answer with sources is followed by an independent block:
 ```
 **📄 Fuentes utilizadas · 2**
 
-**1. manual-iva.pdf** · pág. 42 · Deducción del IVA · relevancia 0,94
+**1. manual-iva.pdf** · pág. 42 · Deducción del IVA
 > "El IVA soportado es deducible cuando…"
 
-**2. BOE-...pdf** · pág. 18 · Artículo 95 · relevancia 0,89
+**2. BOE-...pdf** · pág. 18 · Artículo 95
 > "Se considerará deducible el IVA…"
 ```
 
-- `page`, `section` and `score` are optional: when they arrive as `null` the
-  UI shows `página no disponible` / `sección no disponible` and the score is
-  omitted.
+- `page`, `section` and `score` are optional: fields that arrive as `null`
+  are simply **omitted from the header** (no placeholder text). The
+  `relevancia …` fragment only appears when the backend provides a score
+  with validated semantics (never simulated by the demo).
 - If the sources list is empty, **no block is emitted** (the UI never breaks).
 
 ## Expected backend contract
@@ -104,6 +110,56 @@ Fields: `document` and `content` always present; `page`, `section`, `score`
 and `metadata` optional (`null` tolerated). Not enough information:
 `{"answer": "", "sources": [], "grounded": false, "no_answer_reason": "..."}`.
 
+## Real contract observed (pre-integration)
+
+> **Status: frontend prepared for real integration — the RAG pipeline is
+> NOT connected yet** (no `src/rag/engine.py`; PRs #25–#28 still open).
+> Verified read-only against `main` (`RAGPipeline`) and those PRs.
+
+What the backend returns today:
+
+```python
+RAGPipeline.answer_query(question) -> {
+    "answer": str,                  # always present (the LLM runs even with 0 documents)
+    "source_documents": [Document], # langchain Document, may be []
+}
+# NO "sources", "grounded", "no_answer_reason", "latency_ms" or "score" keys.
+```
+
+Document metadata returned by the retriever: `doc_id`, `tax`, `doc_type`,
+`fiscal_year`, `valid_from`/`valid_to`, `section_label`, `section_path`,
+`page`, `page_end`, `source_url`, `retrieved_at`, `source_scope`,
+`session_id` (when private), `chunk_index`, plus the guaranteed alias
+`source = source_url or doc_id`.
+
+Differences vs the UI contract and how the adapter normalizes them:
+
+| Real backend | UI contract | Normalization |
+|---|---|---|
+| `source_documents` | `sources` | `RAGResponse.from_dict` falls back to `source_documents`. |
+| `metadata.section_label` / `section_path` | `section` | fallback chain `section` → `section_label` → `section_path` → `heading`. |
+| `metadata.source` (path or id) | `document` | basename only (folders/UUIDs never shown). |
+| `page_content` + `page`/`page_end` | `content` + `page` | mapped directly; the full metadata dict is preserved untouched in `metadata`. |
+| no `score` | `score = null` | the «relevancia» line is **omitted — never invented**. |
+| no `grounded` | `grounded = true` default | `grounded` must be provided/derived by the RAG layer; the UI does not invent a grounding policy. |
+| no `latency_ms` | `latency_ms = null` | not displayed. |
+
+**Score semantics** (verified in the retrieval docs of PRs #25–#28): Chroma
+cosine `distance = 1 − similarity`, so a real score would be a similarity in
+**[−1, 1]** — *not* a probability. The frontend displays any provided value
+**exactly as received** (no distance→similarity conversion, ever).
+
+**`session_id`**: bound when the backend *constructs* its retriever
+(`get_retriever(session_id=…)`), validated on the backend side — never per
+query and never authentication. The UI supplies the identity through the
+seam `create_backend(session_id=…)` (`app.py` reads
+`cl.context.session.id` with a process-wide fallback).
+
+Still pending on the backend before a real integration: create
+`src/rag/engine.py`, merge PRs **#25 → #26 → #27 → #28** (the order
+announced by the RAG team), signal `grounded`/abstention, validate the
+session before building the retriever, and (optionally) emit scores.
+
 ## Using the mock
 
 `mock_rag.py` is deterministic (same question → same answer):
@@ -117,6 +173,15 @@ and `metadata` optional (`null` tolerated). Not enough information:
 | `metadata` / `incompleto` | Sources with `null` metadata (UI robustness) |
 | `error` / `fallo` | Raises an exception → UI error state |
 | anything else | Generic answer + 1 source |
+
+**Source coherence**: the mock receives the session's real document names
+(`labels`) and binds its simulated sources to them, so the cited documents are
+always the ones the user uploaded (never invented filenames). With no
+uploads, it keeps its own simulated names.
+
+**No invented scores**: every simulated source keeps `score = null`, so the
+demo never shows «relevancia». That line only appears when the real backend
+provides a score with validated semantics (cosine similarity).
 
 The 🧠 badge on the welcome screen tells the user they are in demo mode
 (`RagAdapter.is_mock`). Once the real engine is connected it becomes `False`
@@ -139,12 +204,14 @@ contract.
 
 ```python
 async def query(question: str, documents: list[str]) -> dict | RAGResponse
-# ask(...) and a synchronous implementation are also accepted
+# ask(...) and a synchronous implementation are also accepted;
+# answer_query(question) — the real RAGPipeline signature — works too
+# (documents are passed only when the exposed signature accepts them).
 ```
 
-The adapter invokes it with `backend.query(question, documents)` (or `ask`),
-expects a sync or `await`-able result and normalizes it with
-`RAGResponse.from_any(...)`.
+The adapter invokes it with `backend.query(question, documents)` (or `ask`,
+or `answer_query(question)`), expects a sync or `await`-able result and
+normalizes it with `RAGResponse.from_any(...)`.
 
 ### 2. Parameters received
 
@@ -194,8 +261,9 @@ document · page · section · relevance · snippet:
   UI shows only the filename (never UUIDs or folders).
 - `content` (**required**): the exact retrieved snippet (rendered as a quote).
   When missing, the UI shows *(fragmento no disponible)*.
-- `page`, `section`, `score` (optional): `null` → the UI writes
-  *página/sección no disponible* and omits the relevance.
+- `page`, `section`, `score` (optional): `null` → the field is omitted from
+  the header (no placeholder text is shown); relevance only appears when a
+  validated score is present.
 - `metadata` (optional): free dict; if it contains `source`/`page`/`section`/
   `score`, the UI uses them as fallback.
 
@@ -225,9 +293,9 @@ wrong: it would be shown to the user as if it were the answer.
 ### Connecting `engine.py` (2 steps, only `rag_adapter.py`)
 
 ```python
-def create_backend():
+def create_backend(session_id: str | None = None):
     from src.rag.engine import RagEngine   # ← RAG team import
-    return RagEngine()
+    return RagEngine(session_id=session_id)  # scopes the retriever (backend validates)
 ```
 
 Once done, adapter instances report `is_mock = False` and the welcome screen
@@ -250,7 +318,7 @@ normalized response (`RAGResponse`).
 |---|---|
 | Palette (light/dark), radii, sidebar | `public/theme.json` (HSL tokens) |
 | Global styles | `public/custom.css` |
-| Editor placeholder | `public/custom.js` |
+| Editor placeholder | `public/custom.js` → `Pregunta sobre la documentación disponible…` |
 | Name, language, default theme, layout | `.chainlit/config.toml` |
 | Brand logo and avatar | `public/logo_*.svg`, `public/avatar.svg` + `default_avatar_file_url` |
 | Copy (all visible text) | `formatters.py` |
@@ -259,8 +327,8 @@ normalized response (`RAGResponse`).
 
 - The **name of a `cl.Step`** is used as the avatar identifier
   (`/avatars/<name>`) and that endpoint rejects accents and symbols → use
-  only `[a-zA-Z0-9_ .-]` (e.g. `"Buscando fuentes"`). Accented text goes in
-  the step `output`, which does accept it.
+  only `[a-zA-Z0-9_ .-]` (e.g. `"Consultando la documentacion"`). Accented
+  text goes in the step `output`, which does accept it.
 - `cl.user_session` only exposes `get(key, default)` / `set(key, value)`.
 - There is no `@cl.on_action`: use `cl.Action(name, payload, label, tooltip,
   icon)` + `@cl.action_callback("name")`.
@@ -269,6 +337,13 @@ normalized response (`RAGResponse`).
 - Spontaneous file upload: `[features.spontaneous_file_upload]` in the
   config; files arrive in `on_message` as `message.elements` (with the
   original `.name` and the storage `.path`).
+- **Asymmetric task events (Stop-button bug)**: Chainlit 2.12's ask flow
+  sends an orphan `task_start` when an ask resolves (emitter) and action
+  callbacks run outside a task context, so the composer could stay in
+  "running" state (■ Stop) forever after using an action button. Workaround
+  in `app.py`: `_emit_task()` wraps every action callback with a balanced
+  `task_start`/`task_end` pair (guarded, never raises). Do not remove it
+  without re-running the composer audit.
 - `language = "ex"` must match an existing translation file (`es`, not
   `es-ES`) and `chainlit_es.md`; otherwise Chainlit logs a warning at
   startup. Both files are included → clean startup.
@@ -287,25 +362,34 @@ error message (never a silent failure).
 ## Tests
 
 ```bash
-python -m pytest tests/ -q      # 97 tests
+python -m pytest tests/ -q      # 126 tests
 ```
 
 - `tests/test_frontend_contract.py` — contract (`Source`/`RAGResponse`), every
-  formatter/copy string, mock scenarios and the adapter.
-- `tests/test_app_helpers.py` — file validation and `app.py` helpers.
-- `tests/test_integration_fake_backend.py` — fake backend covering the 7
+  formatter/copy string, mock scenarios (including source coherence with the
+  uploaded labels and the no-invented-scores rule) and the adapter.
+- `tests/test_app_helpers.py` — file validation, `app.py` helpers, suggestion
+  actions, the balanced `_emit_task` bookkeeping and the `session_id` seam.
+- `tests/test_integration_fake_backend.py` — two layers: the 7 theoretical
   contract cases (2 sources, 1 source, no sources, `grounded=False`,
-  incomplete metadata, error, latency) plus tolerance variants.
+  incomplete metadata, error, latency) plus tolerance variants; and the
+  **real backend shape** (`answer_query` → `source_documents`: mapping,
+  empty corpus, no-answer readiness, error, `session_id` forwarding, long
+  answer).
 
 No network dependencies or external services.
 
 ## UX decisions
 
-1. Ephemeral sessions: conversations and documents are never persisted.
+1. Ephemeral sessions: conversation and document *state* reset on reload.
+   (Chainlit keeps the raw upload bytes under `ui/.files/<session>/`; nothing
+   references them after the session is gone.)
 2. All copy in Spanish, professional tone, no technical jargon for the user.
 3. Sources always visible (no accordion) right under the answer.
 4. Stack traces, keys and internal paths never reach the interface.
 5. No authentication and no calls to external services.
+6. Internal step statuses (`Usado`/`Usando`) are hidden via the documented
+   exception in `public/custom.css`; the user only sees the step title.
 
 ---
 
@@ -330,12 +414,15 @@ async def query(question: str, documents: list[str]) -> dict:
     ...
 ```
 
-- Acceptable: `ask(...)` instead of `query(...)`, or a synchronous
-  implementation.
+- Acceptable: `ask(...)` instead of `query(...)`, a synchronous
+  implementation, or the pipeline's real `answer_query(question)` (the
+  adapter inspects the signature and passes `documents` only when accepted).
 - `documents` = names/paths of the session documentation (the engine decides
   whether to use them for filtering).
 - Returns a `dict` with the contract keys (an object with the same
-  attributes or an already built `RAGResponse` also works).
+  attributes or an already built `RAGResponse` also works). The real shape
+  `{"answer", "source_documents"}` is already understood — see *Real
+  contract observed* above.
 
 ## Response fields
 
@@ -348,10 +435,10 @@ async def query(question: str, documents: list[str]) -> dict:
 | `latency_ms` | No | Engine latency. |
 | `sources[].document` | Yes | Visible document name (if a path arrives, only the file is shown). |
 | `sources[].content` | Yes | The exact retrieved snippet. |
-| `sources[].page` | No | Integer. `null` → *página no disponible*. |
-| `sources[].section` | No | Text. `null` → *sección no disponible*. |
-| `sources[].score` | No | Float 0–1. `null` → relevance not shown. |
-| `sources[].metadata` | No | Free dict (fallback for `source`/`page`/`section`/`score`). |
+| `sources[].page` | No | Integer. `null` → field omitted from the header. |
+| `sources[].section` | No | Text (`section_label` accepted from the real metadata). `null` → field omitted. |
+| `sources[].score` | No | Float (a real score would be a cosine similarity in [−1, 1]). `null` → relevance not shown. |
+| `sources[].metadata` | No | Free dict (fallback for `source`/`page`/`section`/`score`); preserved as received. |
 
 ## Expected engine behavior
 
@@ -366,19 +453,20 @@ async def query(question: str, documents: list[str]) -> dict:
 
 ```python
 # ui/rag_adapter.py
-def create_backend():
+def create_backend(session_id: str | None = None):
     from src.rag.engine import RagEngine
-    return RagEngine()
+    return RagEngine(session_id=session_id)
 ```
 
-That is all: the adapter calls `RagEngine().query(...)`, normalizes the
-response and `is_mock` flips to `False` (the 🧠 demo badge disappears).
-`app.py`, `formatters.py` and the UI stay unchanged.
+That is all: the adapter calls `RagEngine().query(...)` (or the engine's
+`answer_query`), normalizes the response and `is_mock` flips to `False`
+(the 🧠 demo badge disappears). `app.py`, `formatters.py` and the UI stay
+unchanged.
 
 ## Minimum checks after connecting `engine.py`
 
 ```bash
-python -m pytest tests/ -q      # 97 tests (contract + adapter + formatters)
+python -m pytest tests/ -q      # 126 tests (contract + adapter + formatters)
 cd ui && chainlit run app.py --port 8000
 ```
 

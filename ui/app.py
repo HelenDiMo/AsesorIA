@@ -14,6 +14,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import List, Sequence, Tuple
+from uuid import uuid4
 
 import chainlit as cl
 
@@ -22,10 +23,20 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from . import formatters as fmt
     from .contracts import RAGResponse
+    from .guidance import (
+        GUIDANCE_SUGGESTIONS,
+        GUIDANCE_SUGGESTIONS_WHILE_CHAT,
+        is_ambiguous,
+    )
     from .rag_adapter import RagAdapter
 except ImportError:
     import formatters as fmt
     from contracts import RAGResponse
+    from guidance import (
+        GUIDANCE_SUGGESTIONS,
+        GUIDANCE_SUGGESTIONS_WHILE_CHAT,
+        is_ambiguous,
+    )
     from rag_adapter import RagAdapter
 
 logger = logging.getLogger("asesor_fiscal.ui")
@@ -70,6 +81,30 @@ FILE_ACCEPT = {
 def _reset_session() -> None:
     cl.user_session.set("documents", [])
     cl.user_session.set("document_labels", {})
+    cl.user_session.set("has_asked", False)
+
+
+_FALLBACK_SESSION_ID: str | None = None
+
+
+def _session_id() -> str:
+    """Stable identifier of the current Chainlit session — NOT authentication.
+
+    Prefers Chainlit's own session id (``cl.context.session.id``); outside a
+    session (unit tests, early startup) falls back to a process-wide id so
+    the adapter seam (:func:`rag_adapter.create_backend`) always receives a
+    value. Validating the identity is a backend concern, never this UI's.
+    """
+    try:
+        sid = cl.context.session.id
+        if sid:
+            return str(sid)
+    except Exception:  # noqa: BLE001 - no context yet (tests/startup)
+        pass
+    global _FALLBACK_SESSION_ID
+    if _FALLBACK_SESSION_ID is None:
+        _FALLBACK_SESSION_ID = uuid4().hex
+    return _FALLBACK_SESSION_ID
 
 
 def _get_documents() -> List[str]:
@@ -157,14 +192,116 @@ def _load_action() -> cl.Action:
     )
 
 
-async def _register_and_report(items: Sequence[Tuple[str, str]]) -> None:
-    """Validates (name, path), registers them and shows the documentation state."""
+# --------------------------------------------------------------------------- #
+# Task lifecycle for action callbacks (limitación upstream)
+# --------------------------------------------------------------------------- #
+# Chainlit wraps typed messages in process_message() with a balanced
+# task_start/task_end, but action callbacks travel through the HTTP
+# endpoint (server.py) WITHOUT that wrapper, while AskFileMessage.send()
+# always emits an orphan task_start in its finally block (emitter.py
+# ``send_ask_user``). Left unbalanced, the frontend keeps the composer in
+# "Stop" state forever. The helpers below mirror the process_message
+# wrapper around action callbacks so the UI bookkeeping always closes.
+
+
+async def _emit_task(kind: str) -> None:
+    """Emits task_start/task_end; never breaks the flow on failure."""
+    try:
+        emitter = cl.context.emitter
+        if kind == "start":
+            await emitter.task_start()
+        else:
+            await emitter.task_end()
+    except Exception:  # noqa: BLE001 - UI bookkeeping must not break actions
+        logger.debug("task event not emitted (%s)", kind)
+
+
+# --------------------------------------------------------------------------- #
+# Contextual suggestions (shown right after the first upload)
+# --------------------------------------------------------------------------- #
+
+SUGGESTION_QUESTIONS: List[Tuple[str, str]] = [
+    ("IVA soportado", "¿Qué es el IVA soportado y cómo se deduce?"),
+    ("Gastos deducibles", "¿Qué gastos son deducibles en el IRPF de un autónomo?"),
+    ("Modelo 303", "¿Cuándo se presenta el modelo 303?"),
+    ("Obligaciones", "¿Qué obligaciones fiscales tengo como autónomo?"),
+]
+
+
+def _has_asked() -> bool:
+    return bool(cl.user_session.get("has_asked"))
+
+
+def _mark_asked() -> None:
+    cl.user_session.set("has_asked", True)
+
+
+def _suggestion_actions(asked: bool) -> List[cl.Action] | None:
+    """Spanish example questions; only while the conversation has no question."""
+    if asked:
+        return None
+    return [
+        cl.Action(
+            name=f"sugerencia_{i}",
+            payload={"intent": "question", "text": question},
+            label=f"💡 {title}",
+            tooltip="Hacer esta pregunta de ejemplo",
+        )
+        for i, (title, question) in enumerate(SUGGESTION_QUESTIONS)
+    ]
+
+
+def _guidance_actions() -> List[cl.Action]:
+    """Real suggestion buttons for vague openers (guidance.py).
+
+    Each button carries an example question in its payload: clicking it
+    sends that question through the normal RAG flow (a real action, not
+    decoration). 5 suggestions on a fresh conversation; only the first 2
+    once the chat has started (the conversation itself takes priority).
+    """
+    suggestions = GUIDANCE_SUGGESTIONS
+    if _has_asked():
+        suggestions = suggestions[:GUIDANCE_SUGGESTIONS_WHILE_CHAT]
+    return [
+        cl.Action(
+            name=f"orientacion_{i}",
+            payload={"intent": "question", "text": question},
+            label=title,
+            tooltip=f"Sugerencia: {title}",
+        )
+        for i, (title, question) in enumerate(suggestions)
+    ]
+
+
+async def _show_guidance() -> None:
+    """Answers a clearly ambiguous query with orientation, never with the RAG."""
+    await _notify(
+        fmt.format_clarify(
+            has_docs=bool(_get_documents()), in_conversation=_has_asked()
+        ),
+        actions=_guidance_actions(),
+    )
+
+
+async def _register_and_report(
+    items: Sequence[Tuple[str, str]], suggest: bool = False
+) -> None:
+    """Validates (name, path), registers them and shows the documentation state.
+
+    ``suggest`` marks uploads made without an accompanying question: then,
+    while the conversation is still empty, the state message also guides the
+    user with a prompt and contextual suggestion actions (§12).
+    """
     valid, errors = _validate_files(items)
     for message in errors:
         await _notify(message)
     if valid:
         _register_documents(valid)
-        await _notify(fmt.format_documents_state(_document_names()))
+        content = fmt.format_documents_state(_document_names())
+        suggestions = _suggestion_actions(_has_asked()) if suggest else None
+        if suggestions:
+            content += "\n\n**¿Qué quieres consultar?**"
+        await _notify(content, actions=suggestions)
 
 
 # --------------------------------------------------------------------------- #
@@ -172,16 +309,20 @@ async def _register_and_report(items: Sequence[Tuple[str, str]]) -> None:
 # --------------------------------------------------------------------------- #
 
 
+ASK_TIMEOUT_S = 120
+
+
 async def _ask_for_files() -> None:
     files = await cl.AskFileMessage(
         content=(
             "Adjunta la documentación fiscal que quieres consultar "
-            f"(PDF, TXT o Markdown, hasta {MAX_FILE_SIZE_MB} MB por archivo)."
+            f"(PDF, TXT o Markdown, hasta {MAX_FILE_SIZE_MB} MB por archivo).\n\n"
+            f"Este aviso se cierra solo en {ASK_TIMEOUT_S // 60} minutos."
         ),
         accept=FILE_ACCEPT,
         max_size_mb=MAX_FILE_SIZE_MB,
         max_files=5,
-        timeout=120,
+        timeout=ASK_TIMEOUT_S,
     ).send()
 
     if not files:
@@ -191,7 +332,7 @@ async def _ask_for_files() -> None:
         )
         return
 
-    await _register_and_report([(f.name, f.path) for f in files])
+    await _register_and_report([(f.name, f.path) for f in files], suggest=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -209,19 +350,20 @@ async def _query_engine(question: str) -> Tuple[RAGResponse | None, str | None]:
     Returns ``(response, error_kind)``; ``error_kind`` is ``None`` on success.
     """
     documents = _get_documents()
-    adapter = RagAdapter()
+    adapter = RagAdapter(session_id=_session_id())
     response: RAGResponse | None = None
     error_kind: str | None = None
 
     # The Step shows the processing state; NEVER let an exception escape
     # the block: the Step itself would send str(exc) to the client.
     # Note: the Step name is used as avatar (/avatars/<name>) and that
-    # endpoint rejects accents and symbols → ASCII name ("Buscando fuentes").
-    async with cl.Step(name="Buscando fuentes", type="retrieval") as step:
-        step.output = "Consultando la base documental…"
+    # endpoint rejects accents and symbols → ASCII name; the friendly,
+    # accented copy lives in the output (visible while it runs).
+    async with cl.Step(name="Consultando la documentacion", type="retrieval") as step:
+        step.output = "🔎 Consultando la documentación…"
         await step.update()
         try:
-            raw = await adapter.ask(question, documents)
+            raw = await adapter.ask(question, documents, labels=_document_names())
             response = adapter.format_response(raw)
         except (ConnectionError, TimeoutError, OSError) as exc:
             logger.warning("RAG engine unavailable: %s", type(exc).__name__)
@@ -276,6 +418,7 @@ async def _render_response(
 
 
 async def _answer_question(question: str) -> None:
+    _mark_asked()
     if not _get_documents():
         await _notify(fmt.format_no_documents(), actions=[_load_action()])
         return
@@ -290,13 +433,41 @@ async def _answer_question(question: str) -> None:
 
 @cl.action_callback("cargar_documentacion")
 async def _on_load_documents(action: cl.Action) -> None:
-    await _ask_for_files()
+    # Balanced start/end: action callbacks have no process_message wrapper.
+    await _emit_task("start")
+    try:
+        await _ask_for_files()
+    finally:
+        await _emit_task("end")
 
 
 @cl.action_callback("ejemplo_pregunta")
 async def _on_example_question(action: cl.Action) -> None:
-    await cl.Message(content=EXAMPLE_QUESTION, type="user_message").send()
-    await _answer_question(EXAMPLE_QUESTION)
+    await _emit_task("start")
+    try:
+        await cl.Message(content=EXAMPLE_QUESTION, type="user_message").send()
+        await _answer_question(EXAMPLE_QUESTION)
+    finally:
+        await _emit_task("end")
+
+
+async def _on_suggestion(action: cl.Action) -> None:
+    question = str((action.payload or {}).get("text") or "").strip()
+    if not question:
+        return
+    await _emit_task("start")
+    try:
+        await cl.Message(content=question, type="user_message").send()
+        await _answer_question(question)
+    finally:
+        await _emit_task("end")
+
+
+for _i, _ in enumerate(SUGGESTION_QUESTIONS):
+    cl.action_callback(f"sugerencia_{_i}")(_on_suggestion)
+
+for _g, _ in enumerate(GUIDANCE_SUGGESTIONS):
+    cl.action_callback(f"orientacion_{_g}")(_on_suggestion)
 
 
 # --------------------------------------------------------------------------- #
@@ -308,7 +479,7 @@ async def _on_example_question(action: cl.Action) -> None:
 async def on_chat_start() -> None:
     """Welcome: identity, how it works and grounding limit."""
     _reset_session()
-    is_mock = RagAdapter().is_mock
+    is_mock = RagAdapter(session_id=_session_id()).is_mock
     await cl.Message(
         content=fmt.format_welcome(is_mock),
         actions=[_load_action()],
@@ -328,10 +499,12 @@ async def on_message(message: cl.Message) -> None:
 
 async def _handle_message(message: cl.Message) -> None:
     attached = _attached_files(message)
-    if attached:
-        await _register_and_report(attached)
-
     content = (message.content or "").strip()
+
+    if attached:
+        # Suggestions only when the upload comes without a question: then
+        # the conversation has not started yet (§12).
+        await _register_and_report(attached, suggest=not content)
 
     if not content:
         if attached:
@@ -345,6 +518,12 @@ async def _handle_message(message: cl.Message) -> None:
 
     if content.lower().rstrip("¿?¡!.") in UPLOAD_COMMANDS:
         await _ask_for_files()
+        return
+
+    # Conversational UX guidance: clearly vague openers get a friendly
+    # orientation state instead of a generic RAG answer (see guidance.py).
+    if is_ambiguous(content):
+        await _show_guidance()
         return
 
     await _answer_question(content)
