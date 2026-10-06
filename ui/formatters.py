@@ -98,7 +98,10 @@ def format_sources_block(sources: Sequence[Source]) -> str:
 
 def format_answer(response: RAGResponse) -> str:
     """Answer text (sources go in their own block)."""
-    return (response.answer or "").strip()
+    text = (response.answer or "").strip()
+    if response.latency_ms is not None:
+        text += f"\n\n---\n⏱️ *Latencia: {response.latency_ms:.0f} ms*"
+    return text
 
 
 def format_answer_block(response: RAGResponse) -> str:
@@ -224,9 +227,7 @@ def format_clarify(has_docs: bool = False, in_conversation: bool = False) -> str
     if has_docs:
         context = "Tienes documentación cargada."
     else:
-        context = (
-            "Carga tu documentación para empezar: admite PDF, TXT y Markdown."
-        )
+        context = "Carga tu documentación para empezar: admite PDF, TXT y Markdown."
     if in_conversation:
         context += " Sigue preguntando por lo que te interese."
     return f"{headline}\n\n**¿Qué te interesa?**\n\n{context}"

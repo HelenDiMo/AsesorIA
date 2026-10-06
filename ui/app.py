@@ -592,9 +592,17 @@ async def _render_response(
         elements.append(chart)
     source_els = _source_elements(response)
     elements.extend(source_els)
+
+    from pathlib import Path
+
+    Path(".files").mkdir(parents=True, exist_ok=True)
+
     await cl.Message(content=fmt.format_answer(response), elements=elements).send()
     _remember_side_elements(source_els)
-    await _sources_panel(response)
+    try:
+        await _sources_panel(response)
+    except Exception:
+        logger.warning("No se pudo renderizar _sources_panel", exc_info=True)
 
 
 async def _answer_question(question: str) -> None:
@@ -701,7 +709,7 @@ STARTER_CATEGORIES: List[Tuple[str, str, List[Tuple[str, str]]]] = [
 
 
 @cl.set_starter_categories
-async def starter_categories(user=None, *_args):
+async def starter_categories(user=None, **kwargs):
     """Native starter chips grouped by category (rendered on the empty chat)."""
     return [
         cl.StarterCategory(
