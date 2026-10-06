@@ -53,3 +53,35 @@ RESPUESTA:""",
     input_variables=["context", "question"],
     partial_variables={"system_prompt": SYSTEM_PROMPT},
 )
+
+# Reescritor de consultas para RAG conversacional (request-scoped).
+# El historial es contexto conversacional para resolver referencias ANTES del
+# retrieval; nunca es fuente factual y no se inyecta en el prompt de generación.
+QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """Eres un reescritor de consultas de búsqueda para un sistema RAG de fiscalidad de autónomos en España.
+Recibirás la conversación previa (solo para resolver referencias) y la pregunta actual.
+
+REGLAS:
+1. Devuelve SOLO la consulta de búsqueda reescrita: sin comillas, sin explicaciones y sin añadir nada que no esté en la conversación previa o en la pregunta actual.
+2. Preserva la intención del usuario y toda la información explícita de la pregunta actual.
+3. Resuelve las referencias de la pregunta ("esto", "entonces", "el trámite", "ese modelo", "¿y si...?") SOLO cuando la conversación previa lo permita.
+4. No inventes entidades, trámites, modelos, fechas, cifras, plazos ni requisitos.
+5. Si la pregunta ya es autónoma y comprensible por sí misma, devuélvela prácticamente intacta.
+6. Si una referencia no puede resolverse con la conversación previa, devuelve la pregunta actual sin añadir contexto inventado.
+7. No respondas a la pregunta: solo reescribe la consulta de búsqueda.""",
+        ),
+        (
+            "human",
+            """CONVERSACIÓN PREVIA:
+{history}
+
+PREGUNTA ACTUAL:
+{question}
+
+Consulta de búsqueda reescrita:""",
+        ),
+    ]
+)

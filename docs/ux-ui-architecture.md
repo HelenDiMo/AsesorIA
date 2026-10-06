@@ -339,10 +339,13 @@ fresh thread because there is no identity to resume from. The fake
 
 ## 10. Conversational history contract
 
-Status: **implemented on the UI side** (Persona 4); consumption pending on
-Backend/RAG. Scope of this section: the UI→RAG boundary only — no query
-rewriting, no contextual retrieval, no history-aware prompt exists yet
-(see the ownership split below).
+Status: **implemented on both sides** — UI transport (Persona 4) and
+Backend/RAG consumption on `feat/conversational-rag`
+(`RAGEngine.query(question, history=None)` → `RAGPipeline.answer_query`
+→ query rewriting → `retriever.invoke(standalone)`). Scope of this section:
+the UI→RAG boundary; the rewriting mechanics live in `src/rag/pipeline.py`
+and `QUERY_REWRITE_PROMPT` (`src/retrieval/prompts.py`), per the ownership
+split below.
 
 ### Ownership — UI (Persona 4)
 
@@ -422,10 +425,16 @@ here).
 UI/Adapter DONE:
   history transport (build → validate → window → ask(history=))
 
-Backend/RAG TODO:
-  history consumption (answer_query(history=...))
+Backend/RAG DONE (feat/conversational-rag):
+  history consumption (answer_query(history=None) / query(history=None))
   query rewriting (question + history → standalone question)
-  standalone retrieval (retriever.invoke(standalone))
-  history-aware prompt ({history} / rewritten question)
-  real E2E with the 5-question acceptance script + negative test
+  standalone retrieval (retriever.invoke(standalone_query))
+  grounding: history is used ONLY to resolve the retrieval query and
+    never enters the generation prompt (documents remain the sole
+    factual authority)
+
+PENDING:
+  real E2E with the 5-question acceptance script + negative test once a
+  local corpus is indexed (tax_corpus = 0 docs on machines without
+  data/corpus; rewriting already verified live against Groq)
 ```

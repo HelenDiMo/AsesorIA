@@ -29,9 +29,15 @@ class RAGEngine:
             llm = get_llm()
             self.pipeline = RAGPipeline(retriever=retriever, llm=llm)
 
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str, history: Optional[list] = None) -> Dict[str, Any]:
         """
         Procesa una consulta de usuario a través del pipeline.
+
+        ``history`` (opcional): turnos previos de la conversación actual
+        (cronológicos, text-only, request-scoped). Si se proporciona, el
+        pipeline resuelve las referencias de la pregunta (query rewriting)
+        antes del retrieval. ``history`` ausente mantiene el comportamiento
+        clásico pregunta-a-la-vez.
 
         Retorna un diccionario estructurado:
         - question (str): Pregunta original formulada.
@@ -54,7 +60,7 @@ class RAGEngine:
                 "raw_documents": [],
             }
 
-        result = self.pipeline.answer_query(clean_question)
+        result = self.pipeline.answer_query(clean_question, history=history)
         source_docs = result.get("source_documents", [])
         metrics = result.get("metrics", {})
 
