@@ -48,7 +48,7 @@ def test_inclusive_threshold_boundary_and_empty_result():
 def test_metadata_filter_and_defensive_copy(store, service):
     seed(store, service)
     filter_dict = {'$and': [{'doc_id': {'$eq': 'two'}}, {'page_end': {'$gte': 9}}]}
-    retriever = get_retriever(filter_dict=filter_dict, vectorstore=store)
+    retriever = get_retriever(filter_dict=filter_dict, vectorstore=store, score_threshold=None)
     filter_dict.clear()
     assert [doc.metadata['doc_id'] for doc in retriever.invoke('Pregunta')] == ['two']
 

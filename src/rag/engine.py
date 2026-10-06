@@ -5,6 +5,7 @@ gestionando la instanciación única (Singleton/Factory) y el formato estándar 
 """
 
 from typing import Any, Dict, Optional
+from src.common.settings import DEFAULT_TOP_K, DEFAULT_SCORE_THRESHOLD
 from src.rag.pipeline import RAGPipeline, get_llm
 from src.retrieval.retriever import get_retriever
 
@@ -18,8 +19,8 @@ class RAGEngine:
 
     def __init__(
         self,
-        top_k: int = 8,
-        score_threshold: Optional[float] = None,
+        top_k: int = DEFAULT_TOP_K,
+        score_threshold: Optional[float] = DEFAULT_SCORE_THRESHOLD,
         pipeline: Optional[RAGPipeline] = None,
     ):
         if pipeline is not None:
@@ -98,7 +99,7 @@ _engine_instance: Optional[RAGEngine] = None
 
 
 def get_rag_engine(
-    top_k: int = 8, score_threshold: Optional[float] = None
+    top_k: int = DEFAULT_TOP_K, score_threshold: Optional[float] = DEFAULT_SCORE_THRESHOLD
 ) -> RAGEngine:
     """Retorna una instancia reutilizable del RAGEngine."""
     global _engine_instance

@@ -7,6 +7,10 @@ from pathlib import Path
 import yaml
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Configuración inicial V1; evaluada en nuestro corpus, no óptima universalmente.
+DEFAULT_TOP_K = 8
+DEFAULT_SCORE_THRESHOLD = 0.82
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -24,12 +28,12 @@ class Settings(BaseSettings):
     embedding_passage_prefix: str = "passage: "
     embedding_max_tokens: int | None = None  # Por defecto, límite del tokenizer.
 
-    # Sin configuración ganadora: seleccionar explícitamente para experimentar.
-    chunk_size_tokens: int | None = None
-    chunk_overlap_tokens: int | None = None
+    # Configuración V1; permite overrides para otros experimentos.
+    chunk_size_tokens: int | None = 256
+    chunk_overlap_tokens: int | None = 32
 
     chroma_dir: str = str(PROJECT_ROOT / "chroma_db")
-    chroma_collection: str = "tax_corpus"
+    chroma_collection: str = "corpus_256_32"
 
     api_base_url: str = "http://localhost:8000"
     asesoria_mock_api: int = 0

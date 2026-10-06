@@ -8,14 +8,15 @@ from chromadb.api.types import validate_where
 from langchain_core.documents import Document
 from langchain_core.runnables import Runnable, RunnableConfig
 
+from src.common.settings import DEFAULT_TOP_K, DEFAULT_SCORE_THRESHOLD
 from src.indexing.vectorstore import VectorStore, get_vectorstore
 
 
 class VectorRetriever(Runnable[str, list[Document]]):
     """Públicos y privados de una sesión ya validada por la aplicación."""
 
-    def __init__(self, vectorstore: VectorStore, *, top_k: int = 4,
-                 score_threshold: float | None = 0.5, filter_dict: dict | None = None,
+    def __init__(self, vectorstore: VectorStore, *, top_k: int = DEFAULT_TOP_K,
+                 score_threshold: float | None = DEFAULT_SCORE_THRESHOLD, filter_dict: dict | None = None,
                  session_id: str | None = None):
         if session_id is not None:
             if not isinstance(session_id, str):
@@ -90,14 +91,14 @@ class VectorRetriever(Runnable[str, list[Document]]):
         return documents
 
 
-def get_retriever(top_k: int = 4, score_threshold: float | None = 0.5,
+def get_retriever(top_k: int = DEFAULT_TOP_K, score_threshold: float | None = DEFAULT_SCORE_THRESHOLD,
                   filter_dict: dict | None = None, *,
                   vectorstore: VectorStore | None = None,
                   session_id: str | None = None) -> VectorRetriever:
     """Sesión validada por el backend; sin sesión, solo públicos.
 
     No compartir esta instancia ni su pipeline entre sesiones.
-    k y threshold son provisionales; None desactiva únicamente el umbral.
+    Defaults V1 evaluados en nuestro corpus; None desactiva únicamente el umbral.
     """
     return VectorRetriever(vectorstore if vectorstore is not None else get_vectorstore(),
                            top_k=top_k, score_threshold=score_threshold, filter_dict=filter_dict,
