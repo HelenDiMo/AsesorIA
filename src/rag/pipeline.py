@@ -93,21 +93,41 @@ class RAGPipeline:
 
     def answer_query(self, question: str) -> Dict[str, Any]:
         """
-        Ejecuta el ciclo RAG completo para una pregunta dada.
+        Ejecuta el ciclo RAG completo para una pregunta dada,
+        midiendo la latencia de retrieval y de generación.
 
         Retorna un diccionario con:
         - 'answer': Respuesta generada por el LLM.
-        - 'source_documents': Lista de documentos/fragmentos recuperados con metadatos.
+        - 'source_documents': Lista de fragmentos recuperados con metadatos.
+        - 'metrics': Diccionario con latencias en segundos.
         """
+
+        import time
+        # 1. Medir latencia de recuperación (ChromaDB)
+        t_retrieval_start = time.perf_counter()
+
         # 1. Recuperar fragmentos relevantes mediante el retriever
         retrieved_docs = self.retriever.invoke(question)
+
+        t_retrieval = round(time.perf_counter() - t_retrieval_start, 3)
+
+        # 2. Medir latencia de generación (Groq LLM)
+        t_generation_start = time.perf_counter()
 
         # 2. Generar respuesta condicionada al contexto inyectado
         generated_answer = self.generation_chain.invoke(
             {"documents": retrieved_docs, "question": question}
         )
 
+        t_generation = round(time.perf_counter() - t_generation_start, 3)
+        total_latency = round(t_retrieval + t_generation, 3)
+
         return {
             "answer": generated_answer,
             "source_documents": retrieved_docs,
+            "metrics": {
+                "retrieval_latency_s": t_retrieval,
+                "generation_latency_s": t_generation,
+                "total_latency_s": total_latency,
+            },
         }
