@@ -29,3 +29,6 @@ aiosqlite>=0.20.0
 
 # --- Async support (SQLAlchemy + Chainlit) ---
 greenlet>=3.0.0
+
+# --- Embedding inference (compatible with transformers 4.x) ---
+sentence-transformers>=3.4,<4
