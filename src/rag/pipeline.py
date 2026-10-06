@@ -4,58 +4,31 @@ Conecta el retriever vectorial con las directrices de grounding estricto y el LL
 asegurando trazabilidad documental (citas y fuentes).
 """
 
+import os
 from typing import Any, Dict, List, Optional
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_groq import ChatGroq
 
-from src.common.settings import get_settings
 from src.retrieval.prompts import CHAT_QA_PROMPT
 
 
-def get_llm() -> BaseChatModel:
-    """
-    Instancia el LLM según la configuración del entorno (Settings).
-    Soporta 'anthropic' y 'ollama'.
-    """
-    settings = get_settings()
-    provider = settings.llm_provider.lower().strip()
+def get_llm(provider: str | None = None, model: str | None = None):
+    """Instancia directa del cliente oficial de Groq."""
+    import os
+    from langchain_groq import ChatGroq
 
-    if provider == "anthropic":
-        from langchain_community.chat_models import ChatAnthropic
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+    # Usa llama-3.1-8b-instant (disponible siempre en free tier) o llama-3.1-70b-versatile
+    model_name = model or os.getenv("GROQ_MODEL") or "openai/gpt-oss-120b"
 
-        model_name = settings.llm_model or "claude-3-5-sonnet-latest"
-        return ChatAnthropic(
-            model=model_name,
-            temperature=settings.llm_temperature,
-            timeout=settings.llm_timeout_seconds,
-        )
-
-    elif provider == "ollama":
-        from langchain_community.chat_models import ChatOllama
-
-        model_name = settings.llm_model or "qwen2.5:7b"
-        return ChatOllama(
-            base_url=settings.ollama_base_url,
-            model=model_name,
-            temperature=settings.llm_temperature,
-        )
-    elif provider == "openai":
-        from langchain_openai import ChatOpenAI
-
-        model_name = settings.llm_model or "gpt-4o-mini"
-        return ChatOpenAI(
-            model=model_name,
-            temperature=settings.llm_temperature,
-            timeout=settings.llm_timeout_seconds,
-        )
-
-    else:
-        raise ValueError(
-            f"Proveedor de LLM no soportado: '{provider}'. "
-            "Valores válidos en .env: 'anthropic', 'ollama', 'openai'."
-        )
+    return ChatGroq(
+        model_name=model_name,
+        groq_api_key=api_key,
+        temperature=0.0,
+    )
 
 
 def _format_page_reference(metadata: Dict[str, Any]) -> str:
@@ -102,7 +75,7 @@ class RAGPipeline:
         llm: Optional[BaseChatModel] = None,
     ):
         self.retriever = retriever
-        # Si no se pasa un LLM explícito (como en producción/UI), se instancia desde settings
+        # Si no se pasa un LLM explícito, se instancia con get_llm
         self.llm = llm if llm is not None else get_llm()
         self._build_chain()
 
