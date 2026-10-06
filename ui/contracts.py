@@ -192,6 +192,12 @@ class RAGResponse:
     grounded: bool = True
     no_answer_reason: Optional[str] = None
     latency_ms: Optional[float] = None
+    # Optional structured breakdown for a chart widget (demo/mock or any
+    # backend that can provide it): {"title", "labels": [...], "values": [...],
+    # "y_label"}.  Purely optional — the UI renders a cl.Plotly element when
+    # present and simply skips it when missing, so real backends are
+    # unaffected.
+    chart: Optional[dict] = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RAGResponse":
@@ -222,6 +228,7 @@ class RAGResponse:
             grounded=_as_bool(data.get("grounded"), default=reason is None),
             no_answer_reason=reason,
             latency_ms=_as_optional_float(data.get("latency_ms")),
+            chart=_as_optional_dict(data.get("chart")),
         )
 
     @classmethod
@@ -250,6 +257,7 @@ class RAGResponse:
                 "no_answer_reason": getattr(obj, "no_answer_reason", None)
                 or getattr(obj, "reason", None),
                 "latency_ms": getattr(obj, "latency_ms", None),
+                "chart": getattr(obj, "chart", None),
             }
             return cls.from_dict(payload)
         # Fallback: plain text answer with no sources.

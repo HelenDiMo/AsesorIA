@@ -19,6 +19,10 @@ pyyaml>=6.0
 
 # --- Frontend ---
 chainlit>=1.1.0
+plotly>=5.18.0
+# Conversation persistence (Chainlit data layer on SQLite)
+sqlalchemy>=2.0.28
+aiosqlite>=0.20.0
 
 # --- Evaluation / tooling ---
 pytest>=8.0.0

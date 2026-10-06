@@ -56,7 +56,7 @@ and `.chainlit/` resolve inside `ui/`.
 | Documentation | A file is attached | `📚 Documentación disponible · N documentos` + `✓ file` list |
 | Suggestions | Upload sent without a question | `**¿Qué quieres consultar?**` + 4 `💡` actions (only until the first question) |
 | No documents | Question with no files | `📚 Todavía no hay documentación cargada` + upload button |
-| Processing | During the query | Step `Consultando la documentacion` with output `🔎 Consultando la documentación…` |
+| Processing | During the query | Step `Consultando documentos` with output `🔎 Consultando la documentación…` |
 | Answer | `grounded=True` with sources | Answer + `📄 Fuentes utilizadas · N` |
 | No information | `grounded=False` or no sources | `ℹ️ No he encontrado información suficiente` + reason |
 | Error | Backend exception | `⚠️ No he podido conectar…` / `⚠️ Se ha producido un error técnico` |
@@ -84,6 +84,13 @@ Every answer with sources is followed by an independent block:
   `relevancia …` fragment only appears when the backend provides a score
   with validated semantics (never simulated by the demo).
 - If the sources list is empty, **no block is emitted** (the UI never breaks).
+- **Side view hygiene:** the answer also ships one `cl.Text(display="side")`
+  chip per source so Chainlit's side view can open on demand. The previous
+  answer's chips are removed before each new reply
+  (`_clear_side_elements`), so the panel always shows only the **latest**
+  answer's sources — never a mix of older ones. On screens ≤640 px the side
+  view dialog is closed as soon as it appears (it would cover the chat);
+  sources stay fully readable in the in-thread block above.
 
 ## Expected backend contract
 
@@ -318,16 +325,63 @@ normalized response (`RAGResponse`).
 |---|---|
 | Palette (light/dark), radii, sidebar | `public/theme.json` (HSL tokens) |
 | Global styles | `public/custom.css` |
-| Editor placeholder | `public/custom.js` → `Pregunta sobre la documentación disponible…` |
+| Editor placeholder | `public/custom.js` → `¿Qué quieres consultar sobre tu documentación?` |
 | Name, language, default theme, layout | `.chainlit/config.toml` |
 | Brand logo and avatar | `public/logo_*.svg`, `public/avatar.svg` + `default_avatar_file_url` |
 | Copy (all visible text) | `formatters.py` |
+
+### Optional login (Google, native Chainlit)
+
+Login uses Chainlit's own OAuth mechanism — no custom form, no user
+database, no self-issued tokens. It activates only when the environment
+provides credentials; without them the app starts normally with login
+disabled (the welcome screen carries no login CTA in either case).
+
+| Variable | Purpose |
+|---|---|
+| `CHAINLIT_AUTH_SECRET` | Session JWT secret — generate with `chainlit create-secret` |
+| `OAUTH_GOOGLE_CLIENT_ID` | Google Cloud → Credentials → OAuth client ID (Web) |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | Same credential pair |
+
+Redirect URI to register in Google Cloud:
+`http://localhost:8000/auth/oauth/google/callback`. The callback maps the
+Google profile onto `cl.User(identifier=e-mail, display_name=name)` and
+rejects unknown providers or missing e-mails
+(`ui/app.py` → `_oauth_callback`; covered by
+`tests/test_frontend_login.py`). `.env` is loaded at startup
+(`load_dotenv()`), because the Chainlit CLI does not do it.
+
+### Conversation persistence (SQLite, native Chainlit data layer)
+
+Threads and steps are saved to a local SQLite file (`ui/.data/chainlit.db`,
+git-ignored) so conversations are durable; `ui/persistence.py` bootstraps
+Chainlit's official schema (adapted to SQLite: no FKs, `tags` as JSON)
+and registers the layer via `@cl.data_layer`.
+
+| Variable | Purpose |
+|---|---|
+| `CHAINLIT_PERSISTENCE` | On by default; set to `0` to disable |
+| `CHAINLIT_SQLITE_PATH` | Override the DB path (default `ui/.data/chainlit.db`) |
+
+Behaviour and limits:
+
+- **Per-user isolation is server-enforced** by Chainlit (thread author
+  checks): each identity sees only its own threads; separate deployments
+  use separate files. Covered by `tests/test_frontend_persistence.py`.
+- **History and thread resume require login.** In open mode (no OAuth
+  credentials) data is still written, but a reload starts a fresh thread
+  (there is no identity to resume from) — and the console stays clean.
+- Uploaded **files/elements are not persisted** (no storage client):
+  attachments from older sessions do not re-render; the text of the
+  conversation does.
+- Schema ownership/migration (SQLite → Postgres, backups) is backend
+  scope — see `.agent-local/audit/product-ux/PERSISTENCE_HANDOFF.md`.
 
 ### Important Chainlit 2.12 restriction
 
 - The **name of a `cl.Step`** is used as the avatar identifier
   (`/avatars/<name>`) and that endpoint rejects accents and symbols → use
-  only `[a-zA-Z0-9_ .-]` (e.g. `"Consultando la documentacion"`). Accented
+  only `[a-zA-Z0-9_ .-]` (e.g. `"Consultando documentos"`). Accented
   text goes in the step `output`, which does accept it.
 - `cl.user_session` only exposes `get(key, default)` / `set(key, value)`.
 - There is no `@cl.on_action`: use `cl.Action(name, payload, label, tooltip,
@@ -362,7 +416,7 @@ error message (never a silent failure).
 ## Tests
 
 ```bash
-python -m pytest tests/ -q      # 126 tests
+python -m pytest tests/ -q
 ```
 
 - `tests/test_frontend_contract.py` — contract (`Source`/`RAGResponse`), every
@@ -381,13 +435,17 @@ No network dependencies or external services.
 
 ## UX decisions
 
-1. Ephemeral sessions: conversation and document *state* reset on reload.
+1. Conversations are **persisted** per session user (SQLite data layer,
+   see above); with login, history and thread resume work per identity.
+   Without login (open mode) a reload starts a fresh thread.
    (Chainlit keeps the raw upload bytes under `ui/.files/<session>/`; nothing
    references them after the session is gone.)
 2. All copy in Spanish, professional tone, no technical jargon for the user.
 3. Sources always visible (no accordion) right under the answer.
 4. Stack traces, keys and internal paths never reach the interface.
-5. No authentication and no calls to external services.
+5. Authentication is optional and native (Google OAuth through Chainlit,
+   enabled only with credentials in the environment); without them the app
+   runs open. The tests make no network calls.
 6. Internal step statuses (`Usado`/`Usando`) are hidden via the documented
    exception in `public/custom.css`; the user only sees the step title.
 

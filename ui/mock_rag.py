@@ -315,6 +315,43 @@ class MockRAG:
                 grounded=True,
             )
 
+        # IRPF retention applied on invoices (starter question)
+        if "irpf" in q and "factur" in q:
+            return RAGResponse(
+                answer=(
+                    "En tus facturas a clientes debes repercutir IVA y, cuando "
+                    "el cliente es una empresa o una administración, practicar "
+                    "además la retención de IRPF. Con carácter general el tipo "
+                    "es del 15 % (y del 7 % durante los dos primeros años de "
+                    "actividad si cumples los requisitos).\n\n"
+                    "La retención no es un gasto extra: es parte de tu IRPF "
+                    "que dejas ingresado por adelantado. Regístrala en tus "
+                    "libros y tenla en cuenta en el pago fraccionado trimestral."
+                ),
+                sources=[
+                    _make_source(
+                        document="ManualRenta2025Parte1_es_es.pdf",
+                        content=(
+                            "Las retenciones practicadas sobre los rendimientos "
+                            "del trabajo o de la actividad se minoran en el "
+                            "pago fraccionado y en la declaración anual."
+                        ),
+                        page=46,
+                        section="Retenciones e ingresos a cuenta",
+                    ),
+                    _make_source(
+                        document="Manual_IVA_2025.pdf",
+                        content=(
+                            "Las facturas deben expresar la base imponible, "
+                            "la cuota del impuesto y el tipo aplicado."
+                        ),
+                        page=23,
+                        section="Contenido de la factura",
+                    ),
+                ],
+                grounded=True,
+            )
+
         # 8️⃣ IRPF for the self-employed (payments on account)
         if "irpf" in q:
             return RAGResponse(
@@ -350,6 +387,12 @@ class MockRAG:
                     ),
                 ],
                 grounded=True,
+                chart={
+                    "title": "Pagos fraccionados del IRPF por trimestre (demo)",
+                    "labels": ["T1", "T2", "T3", "T4"],
+                    "values": [820.0, 820.0, 940.0, 1110.0],
+                    "y_label": "€ estimados",
+                },
             )
 
         # 9️⃣ General IVA orientation (devengado / soportado)
@@ -389,6 +432,12 @@ class MockRAG:
                     ),
                 ],
                 grounded=True,
+                chart={
+                    "title": "Desglose de IVA del trimestre (demo)",
+                    "labels": ["Devengado", "Soportado", "A ingresar"],
+                    "values": [3450.0, 2210.0, 1240.0],
+                    "y_label": "€",
+                },
             )
 
         # 🔟 Fiscal obligations overview
@@ -424,6 +473,219 @@ class MockRAG:
                         ),
                         page=2,
                         section="Plazos de presentación",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Quarterly filings overview (starter question)
+        if "trimestr" in q:
+            return RAGResponse(
+                answer=(
+                    "Lo trimestral de un autónomo se concentra en dos frentes: "
+                    "el IVA (modelo 303: cuotas devengadas menos soportadas) y "
+                    "los pagos fraccionados del IRPF (modelo 130 en estimación "
+                    "directa o 131 en estimación objetiva).\n\n"
+                    "El plazo ordinario es hasta el día 20 de abril, julio, "
+                    "octubre y enero; el resumen anual de IVA (modelo 390) se "
+                    "presenta en enero. Guarda siempre justificante de cada "
+                    "presentación."
+                ),
+                sources=[
+                    _make_source(
+                        document="Manual_IVA_2025.pdf",
+                        content=(
+                            "Los periodos de liquidación ordinarios son "
+                            "trimestrales y se liquidan dentro de los veinte "
+                            "primeros días naturales del mes siguiente."
+                        ),
+                        page=57,
+                        section="Periodos de liquidación",
+                    ),
+                    _make_source(
+                        document="ManualRenta2025Parte1_es_es.pdf",
+                        content=(
+                            "Los pagos fraccionados se ingresan por los modelos "
+                            "130 (estimación directa) y 131 (estimación objetiva)."
+                        ),
+                        page=52,
+                        section="Pagos fraccionados",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Flat-rate quota («Tarifa Plana») for new registrations
+        if "tarifa" in q and "plana" in q:
+            return RAGResponse(
+                answer=(
+                    "La Tarifa Plana te permite empezar pagando una cuota "
+                    "reducida en lugar de la cuota mínima completa durante el "
+                    "primer año de alta, siempre que no tengas deudas con la "
+                    "Seguridad Social y no hayas estado de alta como autónomo "
+                    "en los dos años anteriores (salvo supuestos excepcionales).\n\n"
+                    "Después hay bonificaciones progresivas por tramos hasta la "
+                    "cuota ordinaria. La cuantía se revisa cada año: confirma el "
+                    "importe vigente en el momento de darte de alta."
+                ),
+                sources=[
+                    _make_source(
+                        document="LETA_20_2007.pdf",
+                        content=(
+                            "Los nuevos autónomos pueden solicitar la cuota de "
+                            "tarifa plana al causar alta en el régimen especial."
+                        ),
+                        page=28,
+                        section="Bonificaciones por alta",
+                    ),
+                    _make_source(
+                        document="RDL_13_2022_RegimenCotizacion_RETA.pdf",
+                        content=(
+                            "La cuota de cotización se determina en función de "
+                            "la base de cotización elegida dentro de los límites "
+                            "vigentes."
+                        ),
+                        page=6,
+                        section="Cuota de cotización",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Annual regularisation of real income (starter question)
+        if "regulariza" in q:
+            return RAGResponse(
+                answer=(
+                    "La regularización anual compara tus ingresos y gastos reales "
+                    "del año con lo declarado a cuenta durante el ejercicio. Si la "
+                    "base real difiere de la estimada, la diferencia se compensa en "
+                    "la declaración anual del IRPF.\n\n"
+                    "En la práctica: conserva facturas y justificantes de todo el "
+                    "año. La regularización solo ajusta diferencias debidamente "
+                    "documentadas."
+                ),
+                sources=[
+                    _make_source(
+                        document="ManualRenta2025Parte1_es_es.pdf",
+                        content=(
+                            "Se regularizan los ingresos y gastos efectivos del "
+                            "ejercicio cuando se apartan de los computados a "
+                            "cuenta durante el año."
+                        ),
+                        page=61,
+                        section="Regularización de ingresos y gastos",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Change of the contribution base (starter question)
+        if "cotiza" in q:
+            return RAGResponse(
+                answer=(
+                    "Puedes modificar tu base de cotización en las fechas "
+                    "habilitadas por la Seguridad Social (hasta tres veces al "
+                    "año), comunicándolo con el modelo de modificación de datos "
+                    "de afiliación del RETA.\n\n"
+                    "El cambio ajusta tanto tu cuota mensual como las futuras "
+                    "prestaciones vinculadas a la base (por ejemplo, la baja por "
+                    "incapacidad temporal): elige según tu previsión de ingresos."
+                ),
+                sources=[
+                    _make_source(
+                        document="PJC_178_2025_OrdenCotizacion_RETA.pdf",
+                        content=(
+                            "El interesado puede solicitar el cambio de base de "
+                            "cotización en las fechas establecidas con carácter "
+                            "anual."
+                        ),
+                        page=4,
+                        section="Modificación de la base",
+                    ),
+                    _make_source(
+                        document="RDL_13_2022_RegimenCotizacion_RETA.pdf",
+                        content=(
+                            "Las prestaciones se calculan sobre la base de "
+                            "cotización resultante de aplicar las reglas del "
+                            "régimen especial."
+                        ),
+                        page=9,
+                        section="Bases para prestaciones",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Compatibility with employment by third parties (starter question)
+        if "cuenta ajena" in q:
+            return RAGResponse(
+                answer=(
+                    "Sí, en general es compatible. Si tienes una relación laboral "
+                    "por cuenta ajena, la empresa cotiza por ese empleo en el "
+                    "régimen general y, si ejeres actividad por cuenta propia, "
+                    "sigues de alta en el RETA por tu actividad profesional.\n\n"
+                    "Revisa la jornada de tu contrato y las reglas de "
+                    "incompatibilidad de cualquier prestación que percibas: "
+                    "existen supuestos con limitaciones específicas."
+                ),
+                sources=[
+                    _make_source(
+                        document="LETA_20_2007.pdf",
+                        content=(
+                            "El trabajador autónomo puede compatibilizar su "
+                            "actividad con otra relación laboral, salvo los "
+                            "límites pactados."
+                        ),
+                        page=12,
+                        section="Compatibilidad de actividades",
+                    ),
+                    _make_source(
+                        document="RDL_08_2015_LGSS.pdf",
+                        content=(
+                            "Los trabajadores pueden estar afiliados "
+                            "simultáneamente al régimen de empleo y al régimen "
+                            "especial correspondiente."
+                        ),
+                        page=9,
+                        section="Afiliación simultánea",
+                    ),
+                ],
+                grounded=True,
+            )
+
+        # Medical leave and cessation of activity (starter question)
+        if "cese" in q or "baja" in q:
+            return RAGResponse(
+                answer=(
+                    "Por baja médica: mantienes el alta como autónomo y, si "
+                    "cumples los periodos de cotización exigidos, puedes "
+                    "percibir la prestación por incapacidad temporal del propio "
+                    "régimen.\n\n"
+                    "Por cese de actividad: si dejas la actividad de forma "
+                    "definitiva, comunica la baja censal (modelo 036) y la baja "
+                    "en el RETA. La prestación por cese exige cotización mínima "
+                    "previa y causas justificadas según la normativa vigente."
+                ),
+                sources=[
+                    _make_source(
+                        document="RDL_08_2015_LGSS.pdf",
+                        content=(
+                            "La incapacidad temporal protege la pérdida de renta "
+                            "del trabajador durante la baja por enfermedad "
+                            "común o accidente."
+                        ),
+                        page=34,
+                        section="Incapacidad temporal",
+                    ),
+                    _make_source(
+                        document="LETA_20_2007.pdf",
+                        content=(
+                            "El cese de actividad determina la baja en el "
+                            "régimen especial y, si se cumplen los requisitos, "
+                            "el acceso a la prestación correspondiente."
+                        ),
+                        page=41,
+                        section="Cese de actividad",
                     ),
                 ],
                 grounded=True,

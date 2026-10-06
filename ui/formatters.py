@@ -116,11 +116,9 @@ def format_answer_block(response: RAGResponse) -> str:
 
 
 def format_welcome(is_mock: bool = False) -> str:
-    """Welcome message: identity, CTA, compact steps and grounding limit."""
+    """Welcome message: identity, upload action, compact steps and grounding limit."""
     lines = [
         "**Asesor Fiscal IA**",
-        "*Consulta tu documentación fiscal de forma clara, trazable y basada en fuentes.*",
-        "",
         "👉 Pulsa **Cargar documentación** (o usa el 📎 del editor) para empezar.",
         "",
         "**Cómo funciona**",

@@ -460,7 +460,8 @@ class TestAskFileCopy:
         content = captured["content"]
         assert "Adjunta la documentación" in content
         assert "PDF, TXT o Markdown" in content
-        assert "cierra solo" in content
+        # FASE 12 (brief Persona 4): the workaround notice is gone for good.
+        assert "cierra solo" not in content
         # Regression: no meta commentary in the normal flow.
         assert "equivocado" not in content
         # No file selected → friendly state, no error.
