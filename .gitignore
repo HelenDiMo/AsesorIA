@@ -18,6 +18,7 @@ Thumbs.db
 .pytest_cache/
 *.log
 .files/
+.data/
 **/.chainlit/translations/
 /.chainlit/
 .env.*

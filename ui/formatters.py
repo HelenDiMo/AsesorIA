@@ -19,9 +19,10 @@ except ImportError:
 
 
 def format_source_header(source: Source, index: Optional[int] = None) -> str:
-    """Source header: number, document, page, section and relevance.
+    """Source header: number, document and only the metadata that exists.
 
-    Missing metadata is replaced with friendly text (never `None`).
+    Missing page/section/score are simply omitted (never padded with
+    placeholder text); the label alone is valid when nothing else exists.
     """
     document = source.document or "Documento desconocido"
     label = f"**{index}. {document}**" if index is not None else f"**{document}**"
@@ -29,18 +30,16 @@ def format_source_header(source: Source, index: Optional[int] = None) -> str:
     parts: list[str] = []
     if source.page is not None:
         parts.append(f"pág. {source.page}")
-    else:
-        parts.append("página no disponible")
 
     if source.section:
         parts.append(source.section)
-    else:
-        parts.append("sección no disponible")
 
     if source.score is not None:
         score = f"{source.score:.2f}".replace(".", ",")
         parts.append(f"relevancia {score}")
 
+    if not parts:
+        return label
     return f"{label} · " + " · ".join(parts)
 
 
@@ -117,23 +116,20 @@ def format_answer_block(response: RAGResponse) -> str:
 
 
 def format_welcome(is_mock: bool = False) -> str:
-    """Welcome message: identity, how it works and grounding limit."""
+    """Welcome message: identity, upload action, compact steps and grounding limit."""
     lines = [
         "**Asesor Fiscal IA**",
-        "*Consulta tu documentación fiscal de forma clara, trazable y basada en fuentes.*",
+        "👉 Pulsa **Cargar documentación** (o usa el 📎 del editor) para empezar.",
         "",
-        "Cómo funciona:",
-        "1. **Carga** tu documentación (PDF, TXT o Markdown) con el 📎 del editor.",
-        "2. **Pregunta** por tus obligaciones, gastos, IVA, IRPF…",
-        "3. **Revisa** la respuesta junto a sus fuentes: documento, página, sección y fragmento exacto.",
+        "**Cómo funciona**",
+        "1️⃣ **Carga** · 2️⃣ **Pregunta** · 3️⃣ **Revisa las fuentes**",
         "",
-        "> ℹ️ Las respuestas se generan **solo** con la documentación cargada. "
-        "Si no encuentro información suficiente, lo indicaré claramente en lugar de improvisar.",
+        "> ⓘ Las respuestas se basan exclusivamente en la documentación disponible.",
     ]
     if is_mock:
         lines += [
             "",
-            "🧠 *Modo demostración: las respuestas se simulan hasta conectar el motor RAG del equipo.*",
+            "🧠 *Modo demostración: las respuestas son simuladas.*",
         ]
     return "\n".join(lines)
 
@@ -190,7 +186,7 @@ def format_documents_state(names: Sequence[str]) -> str:
     unique = list(dict.fromkeys(names))
     n = len(unique)
     noun = "documento" if n == 1 else "documentos"
-    title = f"**📄 Documentación disponible · {n} {noun}**"
+    title = f"**📚 Documentación disponible · {n} {noun}**"
     if not unique:
         return f"{title}\n\n_(sin archivos)_"
     listing = "\n".join(f"✓ {name}" for name in unique)
@@ -200,10 +196,10 @@ def format_documents_state(names: Sequence[str]) -> str:
 def format_no_documents() -> str:
     """'No documentation loaded' state (not an error)."""
     return (
-        "**📄 Todavía no hay documentación cargada**\n\n"
-        "Para responder con trazabilidad necesito la documentación de referencia. "
-        "Puedes adjuntarla con el 📎 del editor (PDF, TXT o Markdown) o usar el "
-        "botón *Cargar documentación*."
+        "**📚 Todavía no hay documentación cargada**\n\n"
+        "Carga tu documentación para empezar: la responderé solo con ella.\n\n"
+        "Admite PDF, TXT y Markdown — usa el botón *Cargar documentación* "
+        "o el 📎 del editor."
     )
 
 
@@ -213,6 +209,27 @@ def format_empty_question() -> str:
         "Escribe una pregunta para poder ayudarte. "
         "Por ejemplo: *¿Qué gastos son deducibles de un autónomo?*"
     )
+
+
+def format_clarify(has_docs: bool = False, in_conversation: bool = False) -> str:
+    """Orientation state for clearly vague openers (never sent to the RAG).
+
+    Context-aware: mentions the loaded documentation when there is one,
+    invites to load it when there is none, and nudges the chat when the
+    conversation already started. The suggestion buttons (rendered by the
+    caller as real actions) are orientation only — they never claim the
+    documentation contains that information.
+    """
+    headline = "**Claro. Puedo ayudarte a consultar la documentación disponible.**"
+    if has_docs:
+        context = "Tienes documentación cargada."
+    else:
+        context = (
+            "Carga tu documentación para empezar: admite PDF, TXT y Markdown."
+        )
+    if in_conversation:
+        context += " Sigue preguntando por lo que te interese."
+    return f"{headline}\n\n**¿Qué te interesa?**\n\n{context}"
 
 
 def format_question_too_long(limit: int) -> str:
