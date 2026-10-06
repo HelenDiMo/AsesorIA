@@ -207,7 +207,12 @@ class TestAdapterTolerance:
         await adapter.ask("¿IVA?", ["a.pdf", "b.pdf"])
         assert backend.calls == [("¿IVA?", ["a.pdf", "b.pdf"])]
 
-    def test_is_mock_false_with_backend(self):
+    def test_is_mock_false_with_backend(self, monkeypatch):
+        import ui.rag_adapter as adapter_module
+
+        monkeypatch.setattr(
+            adapter_module, "create_backend", lambda session_id=None: None
+        )
         assert RagAdapter(backend=FakeBackend({})).is_mock is False
         assert RagAdapter().is_mock is True
 
@@ -318,7 +323,12 @@ class TestAdapterTolerance:
             await adapter.ask("P", [])
 
     @pytest.mark.asyncio
-    async def test_default_adapter_uses_mock(self):
+    async def test_default_adapter_uses_mock(self, monkeypatch):
+        import ui.rag_adapter as adapter_module
+
+        monkeypatch.setattr(
+            adapter_module, "create_backend", lambda session_id=None: None
+        )
         adapter = RagAdapter()
         assert adapter.is_mock is True
         resp = await adapter.ask("IVA deducible?", [])
