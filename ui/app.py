@@ -475,8 +475,8 @@ async def _sources_panel(response: RAGResponse) -> None:
     async with cl.Step(
         name=f"Fuentes utilizadas {n}",
         type="tool",
-        default_open=False,     # starts collapsed: does not clutter the chat
-        auto_collapse=True,     # folds again while navigating
+        default_open=False,  # starts collapsed: does not clutter the chat
+        auto_collapse=True,  # folds again while navigating
     ) as step:
         step.output = fmt.format_sources_block(response.sources)
 
@@ -524,7 +524,7 @@ def _chart_element(response: RAGResponse) -> Optional[Any]:
     if not labels or not values or len(labels) != len(values):
         return None
     try:
-        import plotly.graph_objects as go
+        import plotly.graph_objects as go # type: ignore[import-untyped, import-not-found]
 
         fig = go.Figure(go.Bar(x=list(labels), y=[float(v) for v in values]))
         title = str(data.get("title") or "Desglose")
@@ -592,16 +592,24 @@ async def _render_response(
         elements.append(chart)
     source_els = _source_elements(response)
     elements.extend(source_els)
+
+    from pathlib import Path
+
+    Path(".files").mkdir(parents=True, exist_ok=True)
+
     await cl.Message(content=fmt.format_answer(response), elements=elements).send()
     _remember_side_elements(source_els)
-    await _sources_panel(response)
+    try:
+        await _sources_panel(response)
+    except Exception:
+        logger.warning("No se pudo renderizar _sources_panel", exc_info=True)
 
 
 async def _answer_question(question: str) -> None:
     _mark_asked()
-    if not _get_documents():
-        await _notify(fmt.format_no_documents(), actions=[_load_action()])
-        return
+    # if not _get_documents():
+    #    await _notify(fmt.format_no_documents(), actions=[_load_action()])
+    #    return
     response, error_kind = await _query_engine(question)
     await _render_response(response, error_kind)
 
@@ -701,7 +709,7 @@ STARTER_CATEGORIES: List[Tuple[str, str, List[Tuple[str, str]]]] = [
 
 
 @cl.set_starter_categories
-async def starter_categories(user=None, *_args):
+async def starter_categories(user=None, **kwargs):
     """Native starter chips grouped by category (rendered on the empty chat)."""
     return [
         cl.StarterCategory(
@@ -810,13 +818,10 @@ async def _ask_decision(kind: str) -> Optional[str]:
             content=content, actions=actions, timeout=60
         ).send()
     except Exception:  # noqa: BLE001 - decision layer must never break the chat
-        logger.debug("AskActionMessage unavailable; answering directly",
-                     exc_info=True)
+        logger.debug("AskActionMessage unavailable; answering directly", exc_info=True)
         return None
     payload = (
-        res.get("payload")
-        if isinstance(res, dict)
-        else getattr(res, "payload", None)
+        res.get("payload") if isinstance(res, dict) else getattr(res, "payload", None)
     )
     label = str((payload or {}).get("label") or "").strip()
     return label or None
