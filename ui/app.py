@@ -475,8 +475,8 @@ async def _sources_panel(response: RAGResponse) -> None:
     async with cl.Step(
         name=f"Fuentes utilizadas {n}",
         type="tool",
-        default_open=False,     # starts collapsed: does not clutter the chat
-        auto_collapse=True,     # folds again while navigating
+        default_open=False,  # starts collapsed: does not clutter the chat
+        auto_collapse=True,  # folds again while navigating
     ) as step:
         step.output = fmt.format_sources_block(response.sources)
 
@@ -599,9 +599,9 @@ async def _render_response(
 
 async def _answer_question(question: str) -> None:
     _mark_asked()
-    if not _get_documents():
-        await _notify(fmt.format_no_documents(), actions=[_load_action()])
-        return
+    # if not _get_documents():
+    #    await _notify(fmt.format_no_documents(), actions=[_load_action()])
+    #    return
     response, error_kind = await _query_engine(question)
     await _render_response(response, error_kind)
 
@@ -810,13 +810,10 @@ async def _ask_decision(kind: str) -> Optional[str]:
             content=content, actions=actions, timeout=60
         ).send()
     except Exception:  # noqa: BLE001 - decision layer must never break the chat
-        logger.debug("AskActionMessage unavailable; answering directly",
-                     exc_info=True)
+        logger.debug("AskActionMessage unavailable; answering directly", exc_info=True)
         return None
     payload = (
-        res.get("payload")
-        if isinstance(res, dict)
-        else getattr(res, "payload", None)
+        res.get("payload") if isinstance(res, dict) else getattr(res, "payload", None)
     )
     label = str((payload or {}).get("label") or "").strip()
     return label or None
