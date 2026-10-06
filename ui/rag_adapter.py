@@ -121,9 +121,7 @@ def _accepts_keyword(method: Any, name: str) -> bool:
         return False
     if name in sig.parameters:
         return True
-    return any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
+    return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
 
 
 def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
@@ -180,12 +178,10 @@ def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
         raise  # missing dependency INSIDE the backend = real defect
     try:
         return get_rag_engine()
-    except ValueError as exc:
+    except (ValueError, Exception) as exc:
         # Configuration error at construction (API key/provider): the
         # backend is not configured, not broken.
-        logger.warning(
-            "RAG engine not configured (%s); UI runs on the demo mock.", exc
-        )
+        logger.warning("RAG engine not configured (%s); UI runs on the demo mock.", exc)
         return None
 
 
@@ -202,10 +198,7 @@ def _accepts_documents(method: Any) -> bool:
         sig = inspect.signature(method)
     except (TypeError, ValueError):
         return True  # unknown signature → keep the documented 2-arg call
-    if any(
-        p.kind == inspect.Parameter.VAR_POSITIONAL
-        for p in sig.parameters.values()
-    ):
+    if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in sig.parameters.values()):
         return True
     positional = [
         p
@@ -311,7 +304,7 @@ class RagAdapter:
     no real engine is connected in :func:`create_backend`.
     """
 
-    is_mock: bool = True
+    # is_mock: bool = True - La eliminamos para que no trabaje con datos mock
 
     def __init__(self, backend: Any = _UNSET, session_id: str | None = None) -> None:
         """Args:
