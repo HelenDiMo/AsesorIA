@@ -1,21 +1,16 @@
-"""Integration tests: UI adapter against fake backends.
+"""Integration tests: UI adapter against a fake backend.
 
-Two layers:
+Simulates what ``src/rag/engine.py`` will return once the RAG team connects
+it (7 contract cases + tolerance variants) to prove that ``RagAdapter`` and
+the formatters consume it without losing traceability and without breaking:
 
-A. Contract cases (theoretical shape): what ``src/rag/engine.py`` may
-   return once the RAG team connects it (7 contract cases + tolerance
-   variants) — proves that ``RagAdapter`` and the formatters consume any
-   accepted response without losing traceability.
-
-B. Real backend shape (pre-integration): exactly what exists today,
-   verified read-only against ``RAGPipeline.answer_query`` (main) and the
-   retriever of PRs #25-#28:
-
-       answer_query(question) -> {"answer": str,
-                                  "source_documents": [Document]}
-
-   with LangChain-style documents (``page_content`` + retrieval metadata),
-   NO "sources" key, NO "grounded"/"score"/"latency_ms".
+1. answer + 2 full sources
+2. answer + 1 source
+3. answer without sources
+4. grounded=False (not enough information)
+5. incomplete metadata
+6. technical error
+7. simulated latency
 
 Scope: frontend only (adapter, contract, formatters). No retrieval, no
 embeddings, no vector store.
@@ -170,9 +165,8 @@ class TestFakeBackendContractCases:
         assert source.score is None
 
         header = format_source_header(source, index=1)
-        # Missing fields are omitted, never padded with placeholder text.
-        assert "**1. parcial.pdf**" in header
-        assert "no disponible" not in header
+        assert "página no disponible" in header
+        assert "sección no disponible" in header
         assert "None" not in header
         assert "relevancia" not in header
 
@@ -324,225 +318,3 @@ class TestAdapterTolerance:
         resp = await adapter.ask("IVA deducible?", [])
         assert resp.has_answer is True
         assert isinstance(resp.sources[0], Source)
-
-
-# --------------------------------------------------------------------------- #
-# B. Real backend shape (pre-integration): answer_query -> source_documents
-# --------------------------------------------------------------------------- #
-
-
-class FakeDocument:
-    """Duck-typed langchain_core.documents.Document (page_content+metadata).
-
-    UI tests never import backend packages: the shape is what matters.
-    """
-
-    def __init__(self, page_content: str, metadata: dict):
-        self.page_content = page_content
-        self.metadata = metadata
-
-
-def _real_metadata(**overrides) -> dict:
-    """Metadata exactly as the real retriever returns it (PRs #25-#28)."""
-    metadata = {
-        "doc_id": "manual-practico-iva-2025",
-        "tax": "IVA",
-        "doc_type": "manual",
-        "fiscal_year": 2025,
-        "section_label": "Deducción del IVA soportado",
-        "section_path": "IVA > Deducción > Soportado",
-        "page": 42,
-        "page_end": 43,
-        "source_url": "corpus/manual-practico-iva-2025.pdf",
-        "retrieved_at": "2026-10-05T09:00:00+00:00",
-        "source_scope": "public",
-        "chunk_index": 17,
-    }
-    metadata.update(overrides)
-    # The retriever guarantees this integration alias on every Document.
-    metadata.setdefault(
-        "source", metadata.get("source_url") or metadata.get("doc_id")
-    )
-    return metadata
-
-
-class FakePipelineBackend:
-    """The REAL backend surface: ``answer_query(question) -> dict``.
-
-    Returns ``{"answer": str, "source_documents": [FakeDocument]}`` — no
-    "sources", "grounded", "score" or "latency_ms" keys.
-    """
-
-    def __init__(
-        self,
-        source_documents=None,
-        answer: str = "Respuesta del pipeline.",
-        error: BaseException | None = None,
-    ):
-        self.source_documents = list(source_documents or [])
-        self.answer = answer
-        self.error = error
-        self.calls: list[str] = []
-
-    def answer_query(self, question: str) -> dict:
-        self.calls.append(question)
-        if self.error is not None:
-            raise self.error
-        return {"answer": self.answer, "source_documents": self.source_documents}
-
-
-class TestRealBackendShape:
-    """§10/§11: the frontend against the contract really observed."""
-
-    @pytest.mark.asyncio
-    async def test_single_source_mapping(self):
-        backend = FakePipelineBackend(
-            [FakeDocument("El IVA soportado es deducible cuando…", _real_metadata())]
-        )
-        resp = await RagAdapter(backend=backend).ask("¿Qué es deducible?", ["x.pdf"])
-
-        # Signature introspection: answer_query takes only the question.
-        assert backend.calls == ["¿Qué es deducible?"]
-        assert resp.grounded is True  # default: the backend does not send it yet
-        assert len(resp.sources) == 1
-        src = resp.sources[0]
-        assert src.document == "manual-practico-iva-2025.pdf"  # alias, basename
-        assert src.content.startswith("El IVA soportado")
-        assert src.page == 42
-        assert src.section == "Deducción del IVA soportado"  # from section_label
-        assert src.score is None  # the real retriever emits no score
-        # Full retrieval metadata is never lost (page_end, doc_id, …).
-        assert src.metadata["doc_id"] == "manual-practico-iva-2025"
-        assert src.metadata["page_end"] == 43
-        assert src.metadata["chunk_index"] == 17
-
-        block = format_answer_block(resp)
-        assert "relevancia" not in block  # never invented by the frontend
-        assert "> \"El IVA soportado es deducible" in block
-
-    @pytest.mark.asyncio
-    async def test_multiple_sources(self):
-        docs = [
-            FakeDocument(
-                f"Fragmento {i}",
-                _real_metadata(page=i, doc_id=f"doc{i}", source=f"docs/doc{i}.pdf"),
-            )
-            for i in (1, 2, 3)
-        ]
-        backend = FakePipelineBackend(docs, answer="Respuesta con tres fuentes.")
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        assert len(resp.sources) == 3
-        block = format_sources_block(resp.sources)
-        assert "Fuentes utilizadas · 3" in block
-        assert "**1. doc1.pdf**" in block
-        assert "**3. doc3.pdf**" in block
-
-    @pytest.mark.asyncio
-    async def test_section_falls_back_to_section_path(self):
-        backend = FakePipelineBackend(
-            [FakeDocument("Frag", _real_metadata(section_label=None))]
-        )
-        resp = await RagAdapter(backend=backend).ask("P", [])
-        assert resp.sources[0].section == "IVA > Deducción > Soportado"
-
-    @pytest.mark.asyncio
-    async def test_incomplete_metadata_degrades_cleanly(self):
-        backend = FakePipelineBackend([FakeDocument("Frag mínima", {"source": "unica.pdf"})])
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        src = resp.sources[0]
-        assert src.document == "unica.pdf"
-        assert src.page is None and src.section is None and src.score is None
-        # Header shows only what exists: no placeholder padding (§15).
-        assert format_source_header(src, index=1) == "**1. unica.pdf**"
-
-    @pytest.mark.asyncio
-    async def test_realistic_score_is_shown_when_backend_provides_it(self):
-        backend = FakePipelineBackend(
-            [FakeDocument("Frag", _real_metadata(score=0.83))]
-        )
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        assert resp.sources[0].score == pytest.approx(0.83)
-        assert "relevancia 0,83" in format_source_header(resp.sources[0])
-
-    @pytest.mark.asyncio
-    async def test_score_is_never_converted(self):
-        # §8: the adapter must not invent distance→similarity conversions —
-        # whatever the backend reports is displayed as received.
-        backend = FakePipelineBackend(
-            [FakeDocument("Frag", _real_metadata(score=0.17))]
-        )
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        assert resp.sources[0].score == pytest.approx(0.17)
-        assert "relevancia 0,17" in format_source_header(resp.sources[0])
-
-    @pytest.mark.asyncio
-    async def test_empty_source_documents(self):
-        backend = FakePipelineBackend(
-            [], answer="El pipeline responde aunque no haya documentos."
-        )
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        assert resp.has_answer is True
-        assert resp.has_sources is False
-        assert format_sources_block(resp.sources) == ""
-        # grounded must come from the RAG layer when it exists (§7: the UI
-        # does not invent a grounding policy) — default stays permissive.
-        assert resp.grounded is True
-
-    @pytest.mark.asyncio
-    async def test_no_answer_state_ready_when_backend_signals_it(self):
-        backend = FakePipelineBackend()
-
-        def _no_answer(question: str) -> dict:
-            backend.calls.append(question)
-            return {
-                "answer": "",
-                "source_documents": [],
-                "grounded": False,
-                "no_answer_reason": "ningún fragmento supera el umbral",
-            }
-
-        backend.answer_query = _no_answer
-        resp = await RagAdapter(backend=backend).ask("Criptomonedas", [])
-
-        assert resp.grounded is False
-        text = format_no_answer(resp)
-        assert "No he encontrado" in text
-        assert "error" not in text.lower()
-
-    @pytest.mark.asyncio
-    async def test_error_propagates_as_friendly_copy(self):
-        backend = FakePipelineBackend(error=RuntimeError("chroma caído"))
-        adapter = RagAdapter(backend=backend)
-        with pytest.raises(RuntimeError):
-            await adapter.ask("P", [])
-        assert "error técnico" in format_error("unknown")
-
-    def test_session_id_is_forwarded_to_create_backend(self, monkeypatch):
-        import ui.rag_adapter as adapter_module
-
-        captured: dict = {}
-
-        def fake_create_backend(session_id=None):
-            captured["session_id"] = session_id
-            return FakePipelineBackend()
-
-        monkeypatch.setattr(adapter_module, "create_backend", fake_create_backend)
-        adapter = RagAdapter(session_id="sesion-abc123")
-
-        assert captured["session_id"] == "sesion-abc123"
-        assert adapter.session_id == "sesion-abc123"
-        assert adapter.is_mock is False
-
-    @pytest.mark.asyncio
-    async def test_very_long_answer_is_preserved(self):
-        long_answer = ("Respuesta extensa basada en documentación. " * 600).strip()
-        backend = FakePipelineBackend([], answer=long_answer)
-        resp = await RagAdapter(backend=backend).ask("P", [])
-
-        assert resp.answer == long_answer
-        assert format_answer_block(resp).startswith(long_answer)

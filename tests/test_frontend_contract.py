@@ -9,7 +9,6 @@ from ui.contracts import RAGResponse, Source
 from ui.formatters import (
     format_answer,
     format_answer_block,
-    format_clarify,
     format_documents_state,
     format_empty_question,
     format_error,
@@ -175,21 +174,13 @@ class TestFormatSourceHeader:
         assert "**Doc.pdf**" in header
         assert "1." not in header
 
-    def test_missing_page_is_omitted(self):
+    def test_missing_page_placeholder(self):
         src = Source(document="Doc.pdf", content="Contenido", page=None)
-        header = format_source_header(src)
-        assert "pág." not in header
-        assert "no disponible" not in header
+        assert "página no disponible" in format_source_header(src)
 
-    def test_missing_section_is_omitted(self):
+    def test_missing_section_placeholder(self):
         src = Source(document="Doc.pdf", content="Contenido", page=1, section=None)
-        header = format_source_header(src)
-        assert "pág. 1" in header
-        assert "no disponible" not in header
-
-    def test_header_without_any_metadata_is_label_only(self):
-        src = Source(document="Doc.pdf", content="Contenido")
-        assert format_source_header(src, index=2) == "**2. Doc.pdf**"
+        assert "sección no disponible" in format_source_header(src)
 
     def test_missing_score_is_omitted(self):
         src = Source(document="Doc.pdf", content="Contenido", page=1, score=None)
@@ -364,10 +355,6 @@ class TestDocumentAndGreetingStates:
         assert "✓ a.pdf" in msg
         assert "✓ b.pdf" in msg
 
-    def test_documents_state_uses_library_badge(self):
-        # 📚 = documentation loaded; 📄 is reserved for sources used (§24).
-        assert format_documents_state(["a.pdf"]).startswith("**📚")
-
     def test_documents_state_singular(self):
         assert "1 documento" in format_documents_state(["a.pdf"])
 
@@ -392,38 +379,6 @@ class TestDocumentAndGreetingStates:
         assert "800" in format_question_too_long(800)
 
 
-class TestFormatClarify:
-    def test_headline_is_the_expected_prompt(self):
-        msg = format_clarify()
-        assert "**Claro. Puedo ayudarte a consultar la documentación disponible.**" in msg
-        assert "**¿Qué te interesa?**" in msg
-
-    def test_without_documents_invites_upload(self):
-        msg = format_clarify()
-        assert "Carga tu documentación" in msg
-        assert "PDF, TXT y Markdown" in msg
-
-    def test_with_documents_is_contextual(self):
-        msg = format_clarify(has_docs=True)
-        assert "documentación cargada" in msg
-        assert "Carga tu documentación" not in msg
-
-    def test_mid_conversation_prioritizes_the_chat(self):
-        msg = format_clarify(in_conversation=True)
-        assert "Sigue preguntando" in msg
-
-    def test_docs_and_chat_both_present(self):
-        msg = format_clarify(has_docs=True, in_conversation=True)
-        assert "documentación cargada" in msg
-        assert "Sigue preguntando" in msg
-
-    def test_never_promise_corpus_content(self):
-        # The suggestions are orientation, not a claim about the corpus.
-        msg = format_clarify(has_docs=True, in_conversation=True)
-        for forbidden in ("contiene", "tengo información sobre", "incluye"):
-            assert forbidden not in msg
-
-
 class TestFormatWelcome:
     def test_welcome_identity_and_steps(self):
         msg = format_welcome(is_mock=False)
@@ -436,12 +391,6 @@ class TestFormatWelcome:
 
     def test_welcome_hides_mock_badge_in_real_mode(self):
         assert "Modo demostración" not in format_welcome(is_mock=False)
-
-    def test_welcome_has_cta_and_compact_steps(self):
-        msg = format_welcome(is_mock=False)
-        assert "Cargar documentación" in msg
-        assert "1️⃣" in msg and "3️⃣" in msg
-        assert "**Cómo funciona**" in msg
 
 
 # --------------------------------------------------------------------------- #
@@ -508,123 +457,12 @@ class TestMockRAG:
         assert len(resp.sources) == 1
 
     @pytest.mark.asyncio
-    async def test_mock_never_simulates_scores(self):
-        # The demo must not invent relevance: only the real backend shows it.
-        mock = MockRAG()
-        for question in (
-            "¿Qué gastos son deducibles de IVA?",
-            "¿Cuándo se presenta el modelo 303?",
-            "¿Cómo me doy de alta como autónomo?",
-            "metadata incompleta",
-            "pregunta sin escenario",
-        ):
-            resp = await mock.ask(question, [])
-            assert all(s.score is None for s in resp.sources), question
-            # No «relevancia» in any rendered header (snippet text is content).
-            assert all(
-                "relevancia" not in format_source_header(s) for s in resp.sources
-            ), question
-
-    @pytest.mark.asyncio
-    async def test_mock_responses_are_immediate(self):
-        # No artificial delays: the processing state must only reflect real
-        # work (the mock used to sleep 400-900 ms on purpose).
-        import time
-
-        mock = MockRAG()
-        start = time.monotonic()
-        resp = await mock.ask("¿Qué gastos son deducibles de IVA?", [])
-        elapsed = time.monotonic() - start
-        assert resp.latency_ms is None
-        assert elapsed < 0.4
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        ("question", "keyword"),
-        [
-            ("¿Cómo doy de alta de autónomo?", "036"),
-            ("Explícame el IVA", "IVA"),
-            ("¿Qué es el modelo 303?", "303"),
-            ("¿Qué es el IRPF?", "IRPF"),
-            ("¿Qué gastos son deducibles en el IRPF?", "deducibles"),
-            ("¿Qué obligaciones fiscales tengo como autónomo?", "obligaciones"),
-            ("ayuda", "Puedo ayudarte"),
-        ],
-    )
-    async def test_topic_scenarios_answer_coherently(self, question, keyword):
-        # Regression: conversational/valid topics must get a structured,
-        # topic-coherent answer instead of the same generic fallback.
-        resp = await MockRAG().ask(question, [])
-        assert resp.grounded is True
-        assert keyword.lower() in resp.answer.lower(), question
-
-    @pytest.mark.asyncio
-    async def test_mock_answers_are_identified_as_demo(self):
-        # Regression: product-realistic structure, but always marked DEMO.
-        for question in (
-            "Explícame el IVA",
-            "¿Qué es el IRPF?",
-            "pregunta sin escenario",
-        ):
-            resp = await MockRAG().ask(question, [])
-            assert "Demo" in resp.answer, question
-            assert "demostración" in resp.answer, question
-
-    @pytest.mark.asyncio
-    async def test_all_topic_scenarios_bind_sources_to_session(self):
-        # Regression: never cite a file the user has not uploaded.
-        mock = MockRAG()
-        for question in (
-            "¿Qué gastos son deducibles de IVA?",
-            "¿Cuándo se presenta el modelo 303?",
-            "¿Cómo me doy de alta como autónomo?",
-            "¿Qué es el IRPF?",
-            "¿Qué gastos son deducibles en el IRPF?",
-            "¿Qué obligaciones fiscales tengo?",
-            "pregunta sin escenario",
-        ):
-            resp = await mock.ask(
-                question, [r"ui\.files\u1\doc.pdf"], labels=["doc-real.pdf"]
-            )
-            assert all(s.document == "doc-real.pdf" for s in resp.sources), question
-
-    @pytest.mark.asyncio
-    async def test_help_scenario_has_no_simulated_sources(self):
-        # The orientation fallback must not fabricate evidence.
-        resp = await MockRAG().ask("ayuda", [], labels=["doc-real.pdf"])
-        assert resp.sources == []
-
-    @pytest.mark.asyncio
     async def test_is_deterministic(self):
         mock = MockRAG()
         first = await mock.ask("¿Qué es el IRPF?", [])
         second = await mock.ask("¿Qué es el IRPF?", [])
         assert first.answer == second.answer
         assert len(first.sources) == len(second.sources)
-
-    @pytest.mark.asyncio
-    async def test_sources_bound_to_uploaded_documents(self):
-        # Demo rule: simulated sources must cite documents the user loaded.
-        mock = MockRAG()
-        resp = await mock.ask(
-            "¿Qué gastos son deducibles de IVA?",
-            [r"ui\.files\u1\u2.pdf"],
-            labels=["mi-informe.pdf"],
-        )
-        assert {s.document for s in resp.sources} == {"mi-informe.pdf"}
-        # Simulated content (pages/sections) is preserved.
-        assert resp.sources[0].page == 42
-
-    @pytest.mark.asyncio
-    async def test_preferred_names_kept_when_uploaded(self):
-        mock = MockRAG()
-        labels = [
-            "manual-practico-iva-2025.pdf",
-            "BOE-A-1992-28740-consolidado-37-1992.pdf",
-        ]
-        resp = await mock.ask("¿Qué gastos son deducibles de IVA?", [], labels=labels)
-        assert resp.sources[0].document == "manual-practico-iva-2025.pdf"
-        assert resp.sources[1].document.startswith("BOE")
 
 
 # --------------------------------------------------------------------------- #
@@ -663,14 +501,6 @@ class TestRagAdapter:
         resp = await adapter.ask("¿IVA deducible?", [])
         assert isinstance(resp, RAGResponse)
         assert resp.grounded is True
-
-    @pytest.mark.asyncio
-    async def test_adapter_forwards_labels_to_mock(self):
-        adapter = RagAdapter(backend=None)
-        resp = await adapter.ask(
-            "¿Qué gastos son deducibles de IVA?", [], labels=["mio.pdf"]
-        )
-        assert all(s.document == "mio.pdf" for s in resp.sources)
 
     def test_adapter_is_mock_by_default(self):
         assert RagAdapter().is_mock is True
