@@ -44,6 +44,7 @@ query-time errors always propagate.
 
 from __future__ import annotations
 
+import os
 import inspect
 import logging
 import re
@@ -160,6 +161,15 @@ def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
     and the UI keeps showing the demo notice — honest until the engine
     really answers.
     """
+
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    # Si no hay key o es una key dummy de CI/testing, degradar limpiamente a Mock
+    if not api_key or any(
+        token in api_key.lower() for token in ("test", "mock", "dummy", "fake")
+    ):
+        logger.warning("GROQ_API_KEY ausente o de pruebas; la UI usará el demo mock.")
+        return None
+
     # The Chainlit server runs with CWD=ui/ while ``src`` lives at the repo
     # root: make the package importable regardless of the launch directory.
     repo_root = str(Path(__file__).resolve().parent.parent)
@@ -357,8 +367,17 @@ class RagAdapter:
         if self.backend is None:
             mock = MockRAG()
             return await mock.ask(question, documents, labels=labels)
-        raw = await _call_backend(self.backend, question, documents, normalized)
-        return self.format_response(raw)
+        try:
+            raw = await _call_backend(self.backend, question, documents, normalized)
+            return self.format_response(raw)
+        except Exception as exc:
+            # Si el backend falla por API key inválida (401) o falta de autenticación, degradar al mock
+            err_msg = str(exc).lower()
+            if any(term in err_msg for term in ("api key", "authentication", "401", "unauthorized")):
+                logger.warning("Backend authentication failed (%s). Falling back to mock.", exc)
+                mock = MockRAG()
+                return await mock.ask(question, documents, labels=labels)
+            raise
 
     def format_response(self, raw: Any) -> RAGResponse:
         """Normalizes any raw response into the frontend contract.
