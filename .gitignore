@@ -1,5 +1,8 @@
 venv/
 .venv/
+.venv_linux
+.venv_linux/
+.venv_linux/**
 __pycache__/
 *.pyc
 .ipynb_checkpoints

@@ -6,6 +6,9 @@ chromadb>=1.5.9,<2
 
 # --- LLM providers (install only the one you use) ---
 langchain-openai>=0.1.0
+langchain-anthropic 
+langchain-ollama
+langchain-groq
 
 # --- Document processing ---
 pypdf>=4.0
