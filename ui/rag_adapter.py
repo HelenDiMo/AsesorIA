@@ -34,7 +34,7 @@ interface.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 try:
     from .contracts import RAGResponse
@@ -44,6 +44,67 @@ except ImportError:
     from mock_rag import MockRAG
 
 _UNSET = object()
+
+# Conversational history boundary (UI → RAG). The UI transports the turns of
+# the CURRENT conversation only; the window keeps the payload predictable for
+# the backend until it defines its own limit (20 messages ≈ 10 round-trips:
+# enough for follow-up references, small enough for any LLM context).
+HISTORY_WINDOW = 20
+_HISTORY_ROLES = ("user", "assistant")
+
+
+def normalize_history(history: Any) -> Optional[List[dict]]:
+    """Validates/normalizes a conversation history at the UI→RAG boundary.
+
+    Policy (deterministic, documented):
+
+    * ``None`` → ``None`` (not provided: caller behaves as before);
+    * non-list input → ``None`` (controlled discard, never raises);
+    * only ``dict`` entries with ``role`` in {``user``, ``assistant``} and a
+      usable ``content`` survive; everything else is dropped;
+    * ``content`` must be a string (or a scalar safely convertible with
+      ``str()``); ``dict``/``list``/``None``/blank content is dropped;
+    * chronological order is preserved exactly as given;
+    * the window keeps the **last** ``HISTORY_WINDOW`` valid entries.
+
+    The function only filters — it never rewrites, summarizes or invents
+    content (contextual rewriting belongs to Backend/RAG).
+    """
+    if history is None:
+        return None
+    if not isinstance(history, (list, tuple)):
+        return None
+    entries: List[dict] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role")
+        if role not in _HISTORY_ROLES:
+            continue
+        content = entry.get("content")
+        if content is None or isinstance(content, (dict, list, tuple)):
+            continue
+        if not isinstance(content, str):
+            content = str(content)
+        if not content.strip():
+            continue
+        entries.append({"role": role, "content": content})
+    if len(entries) > HISTORY_WINDOW:
+        entries = entries[-HISTORY_WINDOW:]
+    return entries
+
+
+def _accepts_keyword(method: Any, name: str) -> bool:
+    """True when ``method`` can be called with the keyword ``name``."""
+    try:
+        sig = inspect.signature(method)
+    except (TypeError, ValueError):
+        return False
+    if name in sig.parameters:
+        return True
+    return any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
 
 
 def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
@@ -67,7 +128,14 @@ def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
 
 
 def _accepts_documents(method: Any) -> bool:
-    """True when ``method`` can be called as ``method(question, documents)``."""
+    """True when ``method`` can be called as ``method(question, documents)``.
+
+    A second positional parameter **named ``history`` is not documents**: if
+    Backend/RAG extends the surface to ``answer_query(question, history=None)``
+    the documents argument must never land in the history slot, so the
+    two-argument call is skipped in that case (history then travels by
+    keyword only).
+    """
     try:
         sig = inspect.signature(method)
     except (TypeError, ValueError):
@@ -83,15 +151,29 @@ def _accepts_documents(method: Any) -> bool:
         if p.kind
         in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
     ]
+    if len(positional) >= 2 and positional[1].name == "history":
+        return False
     return len(positional) >= 2
 
 
-async def _call_backend(backend: Any, question: str, documents: list[str]) -> Any:
+async def _call_backend(
+    backend: Any,
+    question: str,
+    documents: list[str],
+    history: Optional[list] = None,
+) -> Any:
     """Invokes ``query()``/``ask()``/``answer_query()``, sync or async.
 
     ``RAGPipeline.answer_query(question)`` only takes the question, so
     ``documents`` are forwarded only when the exposed signature accepts a
     second positional argument.
+
+    INTEGRATION SEAM (Backend/RAG): ``history`` is forwarded **only when the
+    backend method explicitly accepts a ``history`` keyword** (or ``**kwargs``)
+    and ``history is not None``. The current pipeline does not → behaviour is
+    byte-identical to before. When Backend/RAG extends the signature (e.g.
+    ``answer_query(question, history=None)``) the transport activates with no
+    further UI change.
     """
     method = (
         getattr(backend, "query", None)
@@ -100,8 +182,13 @@ async def _call_backend(backend: Any, question: str, documents: list[str]) -> An
     )
     if method is None:
         raise TypeError("Backend exposes neither query(), ask() nor answer_query()")
+    kwargs: dict = {}
+    if history is not None and _accepts_keyword(method, "history"):
+        kwargs["history"] = history
     result = (
-        method(question, documents) if _accepts_documents(method) else method(question)
+        method(question, documents, **kwargs)
+        if _accepts_documents(method)
+        else method(question, **kwargs)
     )
     if inspect.isawaitable(result):
         result = await result
@@ -136,17 +223,26 @@ class RagAdapter:
         question: str,
         documents: list[str],
         labels: list[str] | None = None,
+        history: list[dict] | None = None,
     ) -> RAGResponse:
         """Queries the backend and returns a normalized RAGResponse.
 
         Args:
-            question: the user's question.
+            question: the user's question (raw; never rewritten here).
             documents: identifiers/paths of the documentation loaded in the
                 session (today consumed by the mock; the real engine may
                 filter or ignore this list).
             labels: original visible file names of the session (used by the
                 demo mock to keep its simulated sources coherent with the
                 documents the user actually uploaded).
+            history: previous turns of the CURRENT conversation as
+                ``[{"role": "user"|"assistant", "content": str}, ...]`` in
+                chronological order — context for the current question, the
+                question itself excluded. ``None``/omitted = legacy behaviour.
+                Validated by :func:`normalize_history` and forwarded only if
+                the backend signature accepts ``history`` (see
+                :func:`_call_backend`). The demo mock never receives it
+                (it stays stateless by design).
 
         Returns:
             RAGResponse ready for the UI.
@@ -155,10 +251,11 @@ class RagAdapter:
             Exception: any backend failure propagates and the UI turns it
                 into a friendly message (details are never exposed).
         """
+        normalized = normalize_history(history)
         if self.backend is None:
             mock = MockRAG()
             return await mock.ask(question, documents, labels=labels)
-        raw = await _call_backend(self.backend, question, documents)
+        raw = await _call_backend(self.backend, question, documents, normalized)
         return self.format_response(raw)
 
     def format_response(self, raw: Any) -> RAGResponse:

@@ -195,7 +195,9 @@ def _attached_files(message: cl.Message) -> List[Tuple[str, str]]:
 
 
 async def _notify(text: str, actions: List[cl.Action] | None = None) -> None:
-    await cl.Message(content=text, actions=actions).send()
+    await cl.Message(
+        content=text, actions=actions, metadata={_HISTORY_NOTICE_KEY: True}
+    ).send()
 
 
 def _load_action() -> cl.Action:
@@ -359,6 +361,60 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
+# Metadata flag for messages the UI itself emits (welcome, notices,
+# orientation, decision echoes): they are conversation-visible but are NOT
+# context for the RAG, so _build_history() skips them.
+_HISTORY_NOTICE_KEY = "ias_ui_notice"
+
+
+def _build_history(current_question: str) -> Optional[List[dict]]:
+    """Previous turns of the CURRENT conversation (chronological, no rewriting).
+
+    Source: Chainlit's public ``cl.chat_context`` — a per-session list
+    (keyed by ``session.id``, so conversations never mix) that Chainlit
+    populates with the incoming user message **before** ``on_message`` runs,
+    with every message we send, and with the steps of a resumed thread.
+
+    Policy:
+
+    * only ``user_message`` / ``assistant_message`` turns with non-empty
+      text content;
+    * messages tagged ``metadata["ias_ui_notice"]`` at creation are skipped
+      (welcome/orientation/errors are UI chrome, not context);
+    * the **in-flight question is excluded** (it is already in the context
+      and is passed separately to ``ask()``);
+    * returns ``None`` when there is no previous turn (fresh conversation).
+
+    This function TRANSPORTS context only — it never answers, resolves
+    references or rewrites (that is Backend/RAG's job).
+    """
+    try:
+        messages = cl.chat_context.get()
+    except Exception:  # noqa: BLE001 - no session context (tests/startup)
+        return None
+    entries: List[dict] = []
+    for msg in messages:
+        kind = getattr(msg, "type", None)
+        if kind not in ("user_message", "assistant_message"):
+            continue
+        meta = getattr(msg, "metadata", None) or {}
+        if meta.get(_HISTORY_NOTICE_KEY):
+            continue
+        content = msg.content
+        if not isinstance(content, str) or not content.strip():
+            continue
+        role = "user" if kind == "user_message" else "assistant"
+        entries.append({"role": role, "content": content})
+    # Drop the in-flight question (Chainlit added it before this handler).
+    target = (current_question or "").strip()
+    if target:
+        for i in range(len(entries) - 1, -1, -1):
+            if entries[i]["role"] == "user" and entries[i]["content"].strip() == target:
+                del entries[i]
+                break
+    return entries or None
+
+
 async def _query_engine(question: str) -> Tuple[RAGResponse | None, str | None]:
     """Runs the adapter inside a retrieval Step.
 
@@ -366,6 +422,7 @@ async def _query_engine(question: str) -> Tuple[RAGResponse | None, str | None]:
     """
     documents = _get_documents()
     adapter = RagAdapter(session_id=_session_id())
+    history = _build_history(question)
     response: RAGResponse | None = None
     error_kind: str | None = None
 
@@ -378,7 +435,9 @@ async def _query_engine(question: str) -> Tuple[RAGResponse | None, str | None]:
         step.output = "🔎 Consultando la documentación…"
         await step.update()
         try:
-            raw = await adapter.ask(question, documents, labels=_document_names())
+            raw = await adapter.ask(
+                question, documents, labels=_document_names(), history=history
+            )
             response = adapter.format_response(raw)
         except (ConnectionError, TimeoutError, OSError) as exc:
             logger.warning("RAG engine unavailable: %s", type(exc).__name__)
@@ -787,7 +846,7 @@ async def _oauth_callback(
     token: str,
     raw_user_data: dict,
     default_app_user: cl.User,
-    id_token: Optional[str],
+    id_token: Optional[str] = None,
 ) -> Optional[cl.User]:
     """Maps the Google profile onto the Chainlit session user.
 
@@ -840,6 +899,7 @@ async def on_chat_start() -> None:
     await cl.Message(
         content=fmt.format_welcome(is_mock),
         actions=[_load_action()],
+        metadata={_HISTORY_NOTICE_KEY: True},
     ).send()
 
 
@@ -889,6 +949,10 @@ async def _handle_message(message: cl.Message) -> None:
     if kind:
         label = await _ask_decision(kind)
         if label:
-            await cl.Message(content=f"📅 {label}", type="user_message").send()
+            await cl.Message(
+                content=f"📅 {label}",
+                type="user_message",
+                metadata={_HISTORY_NOTICE_KEY: True},
+            ).send()
 
     await _answer_question(content)

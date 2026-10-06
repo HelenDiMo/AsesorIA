@@ -334,3 +334,98 @@ fresh thread because there is no identity to resume from. The fake
    side chips).
 3. Visual review items: welcome hierarchy, card hover states, FAB position
    above the composer, side drawer usability, light + dark palettes.
+
+---
+
+## 10. Conversational history contract
+
+Status: **implemented on the UI side** (Persona 4); consumption pending on
+Backend/RAG. Scope of this section: the UI→RAG boundary only — no query
+rewriting, no contextual retrieval, no history-aware prompt exists yet
+(see the ownership split below).
+
+### Ownership — UI (Persona 4)
+
+- Retrieve the conversation turns of the **current session only**;
+- normalize and validate them at the boundary;
+- apply the size window;
+- transport them to `rag_adapter.ask(..., history=...)`.
+
+### Ownership — Backend/RAG
+
+- turn `question + history` into a standalone query (query rewriting);
+- decide how history is used;
+- perform contextual retrieval (`retriever.invoke(standalone_query)`);
+- incorporate history into the prompt;
+- produce the contextual answer.
+
+### Contract
+
+```python
+await adapter.ask(
+    question,                 # raw user question (never rewritten by the UI)
+    documents,
+    labels=None,
+    history=None,             # optional; None = legacy behaviour
+)
+```
+
+`history` format (chronological, JSON-serializable, nothing else):
+
+```python
+[
+    {"role": "user" | "assistant", "content": str},
+    ...
+]
+```
+
+- The UI **excludes the in-flight question** (it is passed separately) and
+  UI-only notices (welcome, orientation, errors — tagged
+  `metadata["ias_ui_notice"]` at creation).
+- Source: Chainlit's public `cl.chat_context` — a per-session list keyed by
+  `session.id` (conversations never mix), populated with the incoming user
+  message *before* `on_message` runs, with every sent message, and with the
+  steps of a resumed thread.
+
+### Validation and window
+
+`rag_adapter.normalize_history()` (deterministic):
+
+- `None`/non-list → `None`; empty list → `[]` (never raises);
+- only `dict` entries with `role` ∈ {`user`, `assistant`} and non-empty
+  stringifiable `content` survive; everything else is dropped;
+- chronological order preserved byte-for-byte — the UI never rewrites;
+- window: **last `HISTORY_WINDOW = 20` messages** (~10 round-trips: enough
+  for follow-up references, small enough for any LLM context; Backend may
+  re-trim).
+
+### Transport gate (seam)
+
+`_call_backend()` forwards `history=` **only if the backend method accepts a
+`history` keyword** (or `**kwargs`). Current `RAGPipeline.answer_query(question)`
+does not → behaviour is unchanged. `_accepts_documents()` will not confuse a
+future `answer_query(question, history=None)` second slot with `documents`
+(documents travel positionally only when the 2nd parameter is not named
+`history`).
+
+### Not the UI's responsibility
+
+The UI does **not** implement: query rewriting, contextual retrieval,
+history-aware prompts, semantic memory, or answering follow-ups by itself.
+It only transports context. Persisted threads ≠ conversational memory, and
+document rehydration on thread reload is a separate problem (not addressed
+here).
+
+### Backend/RAG TODO (handoff)
+
+```text
+UI/Adapter DONE:
+  history transport (build → validate → window → ask(history=))
+
+Backend/RAG TODO:
+  history consumption (answer_query(history=...))
+  query rewriting (question + history → standalone question)
+  standalone retrieval (retriever.invoke(standalone))
+  history-aware prompt ({history} / rewritten question)
+  real E2E with the 5-question acceptance script + negative test
+```
