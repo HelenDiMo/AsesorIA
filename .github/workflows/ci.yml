@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -26,5 +26,7 @@ jobs:
           pip install pytest pytest-asyncio
 
       - name: Run unit tests with pytest
+        env:
+          GROQ_API_KEY: "gsk_mock_ci_testing_key"
         run: |
           pytest tests/
