@@ -30,6 +30,9 @@ chainlit run app.py        # http://localhost:8000
   como tal, hasta conectar el motor real en
   `ui/rag_adapter.py → create_backend()`).
 
+
+
+
 ---
 
 ## English
@@ -56,3 +59,20 @@ chainlit run app.py        # http://localhost:8000
 - Status: **frontend integrated and tested; RAG backend pending integration**
   (the UI runs on a demo mock, labeled as such, until the real engine is
   connected in `ui/rag_adapter.py → create_backend()`).
+
+### ⚡ Backend Integration & Execution Notes
+
+- **Pre-indexed Corpus Access:** Users can query the base legal and tax corpus (RETA, LGSS, IRPF, IVA) immediately upon startup without needing to upload files first.
+- **Latency Metric Display:** Answers rendered by `RAGEngine` include an end-to-end latency metric in milliseconds (`⏱️ Latencia: X ms`) at the bottom of the message.
+- **Windows Environment Prerequisite:** Chainlit stores message side-elements in a local directory. If running on Windows, ensure the `.files/` folder exists in the project root:
+
+  ```bash
+  mkdir -p .files
+  ```
+- **Visualization Dependencies:** Interactive chart widgets require plotly. Install it within your virtual environment:
+
+   ```bash
+  pip install plotly
+  ```
+
+
