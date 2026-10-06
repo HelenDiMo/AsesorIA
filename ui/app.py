@@ -524,7 +524,7 @@ def _chart_element(response: RAGResponse) -> Optional[Any]:
     if not labels or not values or len(labels) != len(values):
         return None
     try:
-        import plotly.graph_objects as go
+        import plotly.graph_objects as go # type: ignore[import-untyped, import-not-found]
 
         fig = go.Figure(go.Bar(x=list(labels), y=[float(v) for v in values]))
         title = str(data.get("title") or "Desglose")
