@@ -188,9 +188,12 @@ def create_backend(session_id: Optional[str] = None) -> Optional[Any]:
         raise  # missing dependency INSIDE the backend = real defect
     try:
         return get_rag_engine()
-    except (ValueError, Exception) as exc:
-        # Configuration error at construction (API key/provider): the
-        # backend is not configured, not broken.
+    except ValueError as exc:
+        # Configuration error at construction (missing/invalid API key,
+        # unsupported provider — pydantic ValidationError included): the
+        # backend is not configured, not broken. Any other construction
+        # failure (RuntimeError, TypeError, …) is a real defect and raises,
+        # per the documented fallback policy in this module's docstring.
         logger.warning("RAG engine not configured (%s); UI runs on the demo mock.", exc)
         return None
 
@@ -360,24 +363,19 @@ class RagAdapter:
             RAGResponse ready for the UI.
 
         Raises:
-            Exception: any backend failure propagates and the UI turns it
-                into a friendly message (details are never exposed).
+            Exception: any backend failure propagates — including
+                authentication/HTTP errors at query time — and the UI turns
+                it into a friendly message (details are never exposed).
+                Failures are NEVER converted into a demo answer: ``is_mock``
+                was decided when the adapter was constructed, so a mock
+                reply served while ``is_mock`` is False would look real.
         """
         normalized = normalize_history(history)
         if self.backend is None:
             mock = MockRAG()
             return await mock.ask(question, documents, labels=labels)
-        try:
-            raw = await _call_backend(self.backend, question, documents, normalized)
-            return self.format_response(raw)
-        except Exception as exc:
-            # Si el backend falla por API key inválida (401) o falta de autenticación, degradar al mock
-            err_msg = str(exc).lower()
-            if any(term in err_msg for term in ("api key", "authentication", "401", "unauthorized")):
-                logger.warning("Backend authentication failed (%s). Falling back to mock.", exc)
-                mock = MockRAG()
-                return await mock.ask(question, documents, labels=labels)
-            raise
+        raw = await _call_backend(self.backend, question, documents, normalized)
+        return self.format_response(raw)
 
     def format_response(self, raw: Any) -> RAGResponse:
         """Normalizes any raw response into the frontend contract.

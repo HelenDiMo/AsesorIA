@@ -556,3 +556,55 @@ class TestRealBackendShape:
 
         assert resp.answer == long_answer
         assert format_answer_block(resp).startswith(long_answer)
+
+
+# --------------------------------------------------------------------------- #
+# Hardening: documented backend-failure policy (never a silent demo answer)
+# --------------------------------------------------------------------------- #
+
+
+class TestBackendFailurePolicy:
+    """``ui/rag_adapter.py`` fallback policy, as documented in its docstring:
+
+    * construction: only a configuration ``ValueError`` degrades to the
+      demo mock; any other construction failure raises (real defect);
+    * query time: every backend failure propagates — an auth/HTTP error
+      must surface as an error, never as a demo answer while ``is_mock``
+      is False (that reply would look like a real one).
+    """
+
+    @pytest.mark.asyncio
+    async def test_auth_style_query_error_propagates_not_mock(self):
+        backend = FakeBackend(error=RuntimeError("401 Unauthorized: invalid api key"))
+        adapter = RagAdapter(backend=backend)
+
+        assert adapter.is_mock is False
+        with pytest.raises(RuntimeError):
+            await adapter.ask("¿Cuándo me doy de alta?", [])
+
+    def test_construction_config_error_degrades_to_mock(self, monkeypatch):
+        import ui.rag_adapter as adapter_module
+
+        monkeypatch.setenv(
+            "GROQ_API_KEY", "gsk_0123456789abcdef0123456789abcdef0123456789abcdef"
+        )
+
+        def broken_engine():
+            raise ValueError("proveedor no soportado")
+
+        monkeypatch.setattr("src.rag.engine.get_rag_engine", broken_engine)
+        assert adapter_module.create_backend() is None
+
+    def test_construction_failure_other_than_config_raises(self, monkeypatch):
+        import ui.rag_adapter as adapter_module
+
+        monkeypatch.setenv(
+            "GROQ_API_KEY", "gsk_0123456789abcdef0123456789abcdef0123456789abcdef"
+        )
+
+        def broken_engine():
+            raise RuntimeError("chroma caído")
+
+        monkeypatch.setattr("src.rag.engine.get_rag_engine", broken_engine)
+        with pytest.raises(RuntimeError):
+            adapter_module.create_backend()
