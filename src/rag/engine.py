@@ -19,7 +19,7 @@ class RAGEngine:
     def __init__(
         self,
         top_k: int = 8,
-        score_threshold: float = 0.82,
+        score_threshold: Optional[float] = None,
         pipeline: Optional[RAGPipeline] = None,
     ):
         if pipeline is not None:
@@ -71,7 +71,7 @@ class RAGEngine:
                     page_label = f"Págs. {page_start}–{page_end}"
                 else:
                     page_label = f"Pág. {page_start}"
-            else: 
+            else:
                 page_label = "Pág. N/A"
 
             formatted_sources.append(
@@ -88,6 +88,7 @@ class RAGEngine:
             "answer": result.get("answer", ""),
             "sources": formatted_sources,
             "metrics": metrics,
+            "latency_ms": round(metrics.get("total_latency_s", 0.0) * 1000, 2),
             "raw_documents": source_docs,
         }
 
@@ -96,7 +97,9 @@ class RAGEngine:
 _engine_instance: Optional[RAGEngine] = None
 
 
-def get_rag_engine(top_k: int = 8, score_threshold: float = 0.82) -> RAGEngine:
+def get_rag_engine(
+    top_k: int = 8, score_threshold: Optional[float] = None
+) -> RAGEngine:
     """Retorna una instancia reutilizable del RAGEngine."""
     global _engine_instance
     if _engine_instance is None:
