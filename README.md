@@ -9,6 +9,15 @@
 [![CI](https://github.com/HelenDiMo/AsesorIA/actions/workflows/ci.yml/badge.svg)](https://github.com/HelenDiMo/AsesorIA/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.13-blue)
 
+![Chainlit](https://img.shields.io/badge/Chainlit-chat%20UI-1C1C3A)
+![LangChain](https://img.shields.io/badge/LangChain-orchestration-3178C6)
+![Chroma](https://img.shields.io/badge/Chroma-vector%20store-FF6F00)
+![sentence--transformers](https://img.shields.io/badge/sentence--transformers-embeddings-6B4FBB)
+![Groq](https://img.shields.io/badge/Groq-LLM-F54E00)
+![MLflow](https://img.shields.io/badge/MLflow-tracing-0194E2)
+![Docker](https://img.shields.io/badge/Docker-image-2496ED?logo=docker&logoColor=white)
+![Docusaurus](https://img.shields.io/badge/Docusaurus-docs-3ECC5F?logo=docusaurus&logoColor=black)
+
 **[🇪🇸 Español](#presentación-y-demo-de-la-release-candidate) · [🇬🇧 English](#presentation-and-demo-of-the-release-candidate)**
 
 AsesorIA es un sistema de **Retrieval-Augmented Generation (RAG)** orientado a responder preguntas en lenguaje natural sobre información fiscal y normativa española dirigida principalmente a trabajadores autónomos.
