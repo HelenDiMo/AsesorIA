@@ -61,6 +61,11 @@ docker compose up --build   # http://localhost:8000
 - Imagen base `python:3.13-slim` con torch solo-CPU; el healthcheck usa el
   endpoint `/health` de Chainlit.
 
+### Despliegue (Render)
+
+Blueprint en [`render.yaml`](render.yaml): procedimiento, variables de
+entorno y limitaciones en [`docs/deploy_render.md`](docs/deploy_render.md).
+
 ---
 
 ## English
@@ -124,3 +129,8 @@ docker compose up --build   # http://localhost:8000
   `data/raw/*.pdf` stay out of the build (`.dockerignore`).
 - Base image `python:3.13-slim` with CPU-only torch; the healthcheck hits
   Chainlit's `/health` endpoint.
+
+### Deploy (Render)
+
+Blueprint in [`render.yaml`](render.yaml): procedure, environment variables
+and limitations in [`docs/deploy_render.md`](docs/deploy_render.md).
