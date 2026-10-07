@@ -66,6 +66,18 @@ docker compose up --build   # http://localhost:8000
 Blueprint en [`render.yaml`](render.yaml): procedimiento, variables de
 entorno y limitaciones en [`docs/deploy_render.md`](docs/deploy_render.md).
 
+### Observabilidad (opcional)
+
+Tracing MLflow por consulta (spans `rag.query` y `rag.rewrite`), **desactivado
+por defecto** y sin coste si no defines `MLFLOW_TRACKING_URI`
+(contrato en [`src/common/tracing.py`](src/common/tracing.py)):
+
+```bash
+export MLFLOW_TRACKING_URI=sqlite:///mlflow.db    # backend local recomendado
+# …arranca la app; cada consulta queda registrada…
+mlflow ui --backend-store-uri sqlite:///mlflow.db # inspeccionar trazas
+```
+
 ---
 
 ## English
@@ -134,3 +146,14 @@ docker compose up --build   # http://localhost:8000
 
 Blueprint in [`render.yaml`](render.yaml): procedure, environment variables
 and limitations in [`docs/deploy_render.md`](docs/deploy_render.md).
+
+### Observability (optional)
+
+Per-query MLflow tracing (spans `rag.query` and `rag.rewrite`), **disabled by
+default** with no overhead unless `MLFLOW_TRACKING_URI` is set (contract in
+[`src/common/tracing.py`](src/common/tracing.py)):
+
+```bash
+export MLFLOW_TRACKING_URI=sqlite:///mlflow.db    # recommended local backend
+mlflow ui --backend-store-uri sqlite:///mlflow.db # inspect traces
+```

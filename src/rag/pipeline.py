@@ -12,6 +12,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_groq import ChatGroq
 
+from src.common.tracing import record, trace_span
 from src.retrieval.prompts import CHAT_QA_PROMPT, QUERY_REWRITE_PROMPT
 
 
@@ -97,17 +98,27 @@ def resolve_standalone_query(
     referencias usando SOLO la conversación provista; si el resultado viene
     vacío se conserva la pregunta original (consulta conservadora, nunca
     inventada). Un fallo del LLM se propaga sin enmascarar.
+
+    Con MLFLOW_TRACKING_URI definido, cada reescritura real genera el span
+    ``rag.rewrite`` (consulta autónoma resultante); los fast-paths sin LLM
+    no generan spans.
     """
     if not history:
         return question
     transcript = format_history_transcript(history)
     if not transcript:
         return question
-    chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
-    rewritten = str(
-        chain.invoke({"history": transcript, "question": question})
-    ).strip()
-    return rewritten or question
+    with trace_span(
+        "rag.rewrite",
+        {"question": question, "history_turns": len(history)},
+    ) as span:
+        chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        rewritten = str(
+            chain.invoke({"history": transcript, "question": question})
+        ).strip()
+        standalone = rewritten or question
+        record(span, outputs={"standalone_query": standalone})
+        return standalone
 
 
 class RAGPipeline:
