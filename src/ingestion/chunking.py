@@ -30,7 +30,7 @@ class ChunkingConfig:
     @classmethod
     def from_settings(cls, settings):
         if settings.chunk_size_tokens is None or settings.chunk_overlap_tokens is None:
-            raise ValueError("Selecciona tamaño y overlap; no hay ganador por defecto")
+            raise ValueError("Selecciona tamaño y overlap en tokens")
         return cls(settings.chunk_size_tokens, settings.chunk_overlap_tokens)
 
 
