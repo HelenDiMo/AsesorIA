@@ -43,7 +43,7 @@ from src.retrieval.retriever import get_retriever
 # Abrir no carga el modelo: el servicio puede inyectarse o crearse bajo demanda.
 store = get_vectorstore(settings, embedding_service=EmbeddingService(settings))
 ids = add_documents_to_vectorstore(chunks, vectorstore=store)
-retriever = get_retriever(top_k=4, score_threshold=0.5,
+retriever = get_retriever(top_k=8, score_threshold=0.82,
                           filter_dict={'tax': 'IVA'}, vectorstore=store)
 documents = retriever.invoke('¿Qué gastos puedo deducir?')
 ```
@@ -106,8 +106,8 @@ ni un registro de versiones de modelos en esta primera capa.
 
 ## Parámetros provisionales y semántica
 
-- top_k=4 es provisional, no óptimo. Se devuelven como máximo k resultados.
-- score_threshold=0.5 es provisional, no calibrado; None desactiva el umbral.
+- top_k=8 es el default inicial V1; se devuelven como máximo k resultados.
+- score_threshold=0.82 es el default inicial V1 (similitud cosine); None desactiva el umbral. Véase `docs/v1_retrieval_configuration.md` para alcance y límites.
 - Chroma devuelve distancia cosine: `d = 1 - cosine_similarity`.
 - Aplicamos `similarity = 1 - d` y conservamos `similarity >= score_threshold`.
 - El umbral admite [-1,1]. NO representa una probabilidad ni un relevance score
