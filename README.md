@@ -3,7 +3,7 @@
 ## Sistema RAG para consultas sobre información fiscal y normativa española
 
 <p align="center">
-  <img src="ui/public/logo-asesoria.png" alt="AsesorIA — asesor fiscal IA" width="380">
+  <img src="ui/public/logo-asesoria-card.png" alt="AsesorIA — asesor fiscal IA" width="420">
 </p>
 
 [![CI](https://github.com/HelenDiMo/AsesorIA/actions/workflows/ci.yml/badge.svg)](https://github.com/HelenDiMo/AsesorIA/actions/workflows/ci.yml)
@@ -13,10 +13,22 @@
 ![LangChain](https://img.shields.io/badge/LangChain-orchestration-3178C6)
 ![Chroma](https://img.shields.io/badge/Chroma-vector%20store-FF6F00)
 ![sentence--transformers](https://img.shields.io/badge/sentence--transformers-embeddings-6B4FBB)
+![PyTorch](https://img.shields.io/badge/PyTorch-inference-EE4C2C?logo=pytorch&logoColor=white)
 ![Groq](https://img.shields.io/badge/Groq-LLM-F54E00)
 ![MLflow](https://img.shields.io/badge/MLflow-tracing-0194E2)
+![Pydantic](https://img.shields.io/badge/Pydantic-schemas-009688)
+
+![pytest](https://img.shields.io/badge/pytest-tests-D5212A?logo=pytest&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-charts-3F4F7F?logo=plotly&logoColor=white)
+![pypdf](https://img.shields.io/badge/pypdf-PDF%20load-CC6600)
+![pdfplumber](https://img.shields.io/badge/pdfplumber-table%20extract-2E6C77)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-persistence-D72621?logo=sqlalchemy&logoColor=white)
+![PyYAML](https://img.shields.io/badge/PyYAML-config-CB171E)
+![python--dotenv](https://img.shields.io/badge/python--dotenv-env%20variables-E5CD52)
 ![Docker](https://img.shields.io/badge/Docker-image-2496ED?logo=docker&logoColor=white)
+![GitHub%20Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?logo=githubactions&logoColor=white)
 ![Docusaurus](https://img.shields.io/badge/Docusaurus-docs-3ECC5F?logo=docusaurus&logoColor=black)
+![Node.js](https://img.shields.io/badge/Node.js-docs%20toolchain-339933?logo=nodedotjs&logoColor=white)
 
 **[🇪🇸 Español](#presentación-y-demo-de-la-release-candidate) · [🇬🇧 English](#presentation-and-demo-of-the-release-candidate)**
 
