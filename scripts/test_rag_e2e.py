@@ -15,9 +15,9 @@ def run_e2e_demo():
     print("🚀 INICIANDO PRUEBA END-TO-END: ASESORIA RAG PIPELINE")
     print("=" * 60)
 
-    # 1. Instanciamos el retriever con los parámetros del benchmark de Gema (k=8, threshold=0.82)
+    # 1. Validamos los defaults V1 compartidos (k=8, threshold=0.82).
     print("\n[1/3] Conectando Retriever de ChromaDB...")
-    retriever = get_retriever(top_k=8, score_threshold=0.82)
+    retriever = get_retriever()
 
     # 2. Instanciamos el LLM configurado (get_llm ya lee internamente la configuración)
     print("\n[2/3] Conectando LLM Provider...")
