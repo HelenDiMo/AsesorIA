@@ -57,18 +57,27 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      image: 'img/docusaurus-social-card.jpg',
+      image: 'img/asesoria-social-card.png',
       colorMode: {
         respectPrefersColorScheme: true,
       },
       navbar: {
         title: 'AsesorIA',
+        logo: {
+          src: 'img/logo.png',
+          alt: 'Logo de AsesorIA',
+        },
         items: [
           {
             type: 'docSidebar',
             sidebarId: 'docsSidebar',
             position: 'left',
             label: 'Documentación',
+          },
+          {
+            href: 'https://github.com/HelenDiMo/AsesorIA',
+            label: 'GitHub',
+            position: 'right',
           },
         ],
       },
