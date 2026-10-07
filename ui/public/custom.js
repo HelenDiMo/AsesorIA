@@ -21,6 +21,8 @@
   var WELCOME_ID = "ias-welcome-block";
   var FAB_ID = "ias-fab";
   var PANEL_ID = "ias-panel";
+  var WATERMARK_ID = "ias-watermark";
+  var LOGO_SRC = "/public/logo-mark.png";
 
   /* Accessible names for the three icon-only Chainlit buttons (WAVE/axe
    * «empty button») + removal of the invalid role="presentation". */
@@ -417,11 +419,22 @@
     block.id = WELCOME_ID;
     block.className = "-ias-welcome";
 
-    // The hero heading is the page's only <h1> (heading structure for AT).
+    // Brand row: logo tile + the page's only <h1> (heading structure for AT).
+    var brand = document.createElement("div");
+    brand.className = "-ias-brand";
+
+    var logo = document.createElement("img");
+    logo.className = "-ias-logo";
+    logo.src = LOGO_SRC;
+    logo.alt = "";
+    logo.setAttribute("aria-hidden", "true");
+    brand.appendChild(logo);
+
     var greet = document.createElement("h1");
     greet.className = "-ias-greeting";
     greet.textContent = "AsesorIA";
-    block.appendChild(greet);
+    brand.appendChild(greet);
+    block.appendChild(brand);
 
     var tagline = document.createElement("p");
     tagline.className = "-ias-sub";
@@ -527,6 +540,31 @@
     }
   }
 
+  /* --- Brand watermark: fixed, decorative corner mark (desktop only) ----
+   * Decorative on purpose (aria-hidden + empty alt): the hero already
+   * presents the brand, this only keeps it present during the thread.
+   * Visible only when the left gutter is wide enough to hold it without
+   * touching the composer (measured, never guessed from a breakpoint). */
+  function syncWatermarkVisibility() {
+    var wm = document.getElementById(WATERMARK_ID);
+    if (!wm) return;
+    var input = document.getElementById("chat-input");
+    var room = input ? input.getBoundingClientRect().left : window.innerWidth;
+    wm.style.display = room >= 100 ? "" : "none";
+  }
+
+  function ensureWatermark() {
+    if (!document.body || document.getElementById(WATERMARK_ID)) return;
+    var wm = document.createElement("img");
+    wm.id = WATERMARK_ID;
+    wm.className = "-ias-watermark";
+    wm.src = LOGO_SRC;
+    wm.alt = "";
+    wm.setAttribute("aria-hidden", "true");
+    document.body.appendChild(wm);
+    syncWatermarkVisibility();
+  }
+
   /* --- Skip link (WCAG 2.4.1): first tab stop jumps to the thread ----- */
   function ensureSkipLink() {
     if (!document.body) return;
@@ -562,6 +600,8 @@
     labelFileInputs();
     ensureWelcome();
     if (document.body) ensureFab();
+    ensureWatermark();
+    syncWatermarkVisibility();
     ensureHeadingChain();
     ensureMainLandmark();
     ensureRegionLandmarks();
@@ -575,6 +615,10 @@
   }
 
   apply();
+
+  window.addEventListener("resize", function () {
+    syncWatermarkVisibility();
+  });
 
   if (window.MutationObserver) {
     new MutationObserver(apply).observe(document.body, {

@@ -156,11 +156,11 @@ alert_style = "modern"
 # custom_js_attributes = "async type = \"module\""
 
 # Custom login page image, relative to public directory or external URL
-# login_page_image = "/public/custom-background.jpg"
+# Fondo de marca generado (arena + logo difuminado): make_logo.py.
+login_page_image = "/public/login-bg.png"
 
 # Custom login page image filter (Tailwind internal filters, no dark/light variants)
-# login_page_image_filter = "brightness-50 grayscale"
-# login_page_image_dark_filter = "contrast-200 blur-sm"
+login_page_image_dark_filter = "brightness-50"
 
 # Specify a custom meta URL (used for meta tags like og:url)
 # custom_meta_url = "https://github.com/Chainlit/chainlit"
@@ -169,12 +169,12 @@ alert_style = "modern"
 # custom_meta_image_url = "https://chainlit-cloud.s3.eu-west-3.amazonaws.com/logo/chainlit_banner.png"
 
 # Load assistant logo directly from URL.
-# Vacío: se usa public/logo_light.svg y public/logo_dark.svg (según tema).
-logo_file_url = ""
+# Marca AsesorIA (robot, fondo transparente) para cabecera y avisos.
+logo_file_url = "/public/logo-mark.png"
 
 # Load assistant avatar image directly from URL.
 # Avatar de la marca para todos los mensajes y pasos (evita el logo por defecto).
-default_avatar_file_url = "/public/avatar.svg"
+default_avatar_file_url = "/public/logo-mark.png"
 
 # Avatar size in pixels (default: 20).
 # avatar_size = 20
