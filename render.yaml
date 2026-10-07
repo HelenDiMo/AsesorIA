@@ -1,0 +1,44 @@
+# AsesorIA — Render Blueprint
+# Conectar el repositorio en Render (New → Blueprint) despliega este servicio
+# desde el Dockerfile del repo. Procedimiento completo: docs/deploy_render.md
+services:
+  - type: web
+    name: asesoria
+    runtime: docker
+    # Starter (de pago) es el mínimo con disco persistente; el plan Free no
+    # tiene discos y el corpus se perdería en cada redeploy (ver docs).
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Credenciales: se rellenan en el dashboard de Render (sync: false),
+      # nunca se commitean al repositorio.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OAUTH_GOOGLE_CLIENT_ID
+        sync: false
+      - key: OAUTH_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CHAINLIT_AUTH_SECRET
+        generateValue: true
+      # Colección provisional (sin ganadora validada). Tras indexar en el
+      # disco hay que apuntar CHROMA_DIR al run: paso 2 de
+      # docs/deploy_render.md → /app/chroma_db/corpus_runs/<id-del-run>.
+      - key: CHROMA_COLLECTION
+        value: corpus_384_48
+      - key: CHROMA_DIR
+        value: /app/chroma_db
+      # Historial de conversaciones sobre el disco persistente.
+      - key: CHAINLIT_SQLITE_PATH
+        value: /app/chroma_db/chainlit.db
+    disk:
+      name: asesoria-data
+      mountPath: /app/chroma_db
+      sizeGB: 1
+# Alternativa CD (publicada por el job `publish` de CI en pushes a main):
+#   sustituir build por imagen prepublicada, sin build en Render:
+#     image: ghcr.io/<owner>/<repo>:sha-<commit>
+#   (paquetes privados de GHCR requieren imageCredentials; ver docs).

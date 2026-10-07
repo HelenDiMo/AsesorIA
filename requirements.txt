@@ -32,3 +32,6 @@ greenlet>=3.0.0
 
 # --- Embedding inference (compatible with transformers 4.x) ---
 sentence-transformers>=3.4,<4
+
+# --- Observabilidad (tracing RAG; off por defecto, ver src/common/tracing.py) ---
+mlflow>=2.17

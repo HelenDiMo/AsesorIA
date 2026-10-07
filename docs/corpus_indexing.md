@@ -39,6 +39,23 @@ del briefing. Los requisitos de trazabilidad se mantienen mediante los contratos
 compartidos. Hit@k, calibración de threshold y elección de tamaños quedan para
 la evaluación posterior. Los datos generados permanecen fuera de Git.
 
+## Apuntar la aplicación a un run
+
+La colección de producción `tax_corpus` no la escribe este script. Para ejecutar
+la aplicación (o el motor RAG) contra un run indexado, exporta estas variables de
+entorno antes de arrancarla:
+
+```
+CHROMA_DIR=<settings.chroma_dir>/corpus_runs/<run>
+CHROMA_COLLECTION=corpus_384_48
+```
+
+`CHROMA_COLLECTION` debe ser una de las tres colecciones del manifiesto
+(`corpus_256_32`, `corpus_384_48`, `corpus_480_64`). No hay una configuración
+ganadora validada todavía: cualquier elección es provisional para pruebas
+locales y debe documentarse junto al resultado obtenido. El manifiesto del run
+debe estar en estado `verified` antes de usarlo.
+
 ## Ruta de persistencia en Windows
 
 En la instalación comprobada (Chroma 1.5.9), una ruta con caracteres no ASCII,

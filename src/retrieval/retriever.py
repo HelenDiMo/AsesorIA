@@ -11,6 +11,15 @@ from langchain_core.runnables import Runnable, RunnableConfig
 from src.common.settings import DEFAULT_TOP_K, DEFAULT_SCORE_THRESHOLD
 from src.indexing.vectorstore import VectorStore, get_vectorstore
 
+# Banda de relajación del umbral: si el umbral estricto no deja NINGÚN
+# documento autorizado, se admiten los candidatos con similitud >= 0.795.
+# En el corpus real, consultas conversacionales legítimas miden 0.80-0.81
+# (con 0.82 estricto devolvían 0 documentos y la demo mostraba «sin
+# información» en preguntas que sí están en el corpus); observaciones fuera
+# de corpus quedan por debajo del suelo (<= 0.787) y siguen sin documentos.
+# La generación conserva la política anti-alucinación por encima de esto.
+RELAXED_SCORE_FLOOR = 0.795
+
 
 class VectorRetriever(Runnable[str, list[Document]]):
     """Públicos y privados de una sesión ya validada por la aplicación."""
@@ -74,7 +83,7 @@ class VectorRetriever(Runnable[str, list[Document]]):
         # El filtro externo solo restringe el conjunto autorizado.
         where = {"$and": [access, deepcopy(self._filter)]} if self._filter else access
         result = self.vectorstore.query(vector, top_k=self.top_k, filter_dict=where)
-        documents = []
+        hits: list[tuple[Document, float]] = []
         for text, metadata, distance in zip(result["documents"][0], result["metadatas"][0],
                                             result["distances"][0], strict=True):
             # Defensa adicional aunque el backend devolviera registros no autorizados.
@@ -82,13 +91,16 @@ class VectorRetriever(Runnable[str, list[Document]]):
                 continue
             # Chroma cosine: distance = 1 - similarity. NO es una probabilidad.
             similarity = 1.0 - distance
-            if self.score_threshold is not None and similarity < self.score_threshold:
-                continue
             metadata = dict(metadata)
             # Alias de integración, sin modificar ChunkMetadata ni la colección.
             metadata.setdefault("source", metadata.get("source_url") or metadata["doc_id"])
-            documents.append(Document(page_content=text, metadata=metadata))
-        return documents
+            hits.append((Document(page_content=text, metadata=metadata), similarity))
+        kept = [hit for hit in hits
+                if self.score_threshold is None or hit[1] >= self.score_threshold]
+        # Umbral estricto vacío -> banda de relajación (ver RELAXED_SCORE_FLOOR).
+        if not kept and hits and hits[0][1] >= RELAXED_SCORE_FLOOR:
+            kept = [hit for hit in hits if hit[1] >= RELAXED_SCORE_FLOOR]
+        return [doc for doc, _ in kept]
 
 
 def get_retriever(top_k: int = DEFAULT_TOP_K, score_threshold: float | None = DEFAULT_SCORE_THRESHOLD,

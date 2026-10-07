@@ -672,5 +672,10 @@ class TestRagAdapter:
         )
         assert all(s.document == "mio.pdf" for s in resp.sources)
 
-    def test_adapter_is_mock_by_default(self):
+    def test_adapter_is_mock_by_default(self, monkeypatch):
+        import ui.rag_adapter as adapter_module
+
+        monkeypatch.setattr(
+            adapter_module, "create_backend", lambda session_id=None: None
+        )
         assert RagAdapter().is_mock is True

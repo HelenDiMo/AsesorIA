@@ -12,7 +12,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_groq import ChatGroq
 
-from src.retrieval.prompts import CHAT_QA_PROMPT
+from src.common.tracing import record, trace_span
+from src.retrieval.prompts import CHAT_QA_PROMPT, QUERY_REWRITE_PROMPT
 
 
 def get_llm(provider: str | None = None, model: str | None = None):
@@ -63,6 +64,63 @@ def format_docs(docs: List[Document]) -> str:
     return "\n\n".join(formatted_blocks)
 
 
+def format_history_transcript(history: Optional[List[Any]]) -> str:
+    """Transcripción texto del historial para el reescritor de consultas.
+
+    Solo contexto conversacional: entradas cronológicas con role en
+    {user, assistant} y contenido utilizable; el resto se descarta.
+    """
+    lines: List[str] = []
+    for turn in history or []:
+        if not isinstance(turn, dict):
+            continue
+        role = turn.get("role")
+        content = turn.get("content")
+        if role not in ("user", "assistant") or content is None:
+            continue
+        text = str(content).strip()
+        if not text:
+            continue
+        label = "Usuario" if role == "user" else "Asistente"
+        lines.append(f"{label}: {text}")
+    return "\n".join(lines)
+
+
+def resolve_standalone_query(
+    llm: BaseChatModel,
+    question: str,
+    history: Optional[List[Any]] = None,
+) -> str:
+    """question + history → consulta autónoma para el retrieval.
+
+    Sin historial (None/vacío/sin turnos utilizables) devuelve la pregunta
+    original sin invocar al LLM. Con historial, el reescritor resuelve las
+    referencias usando SOLO la conversación provista; si el resultado viene
+    vacío se conserva la pregunta original (consulta conservadora, nunca
+    inventada). Un fallo del LLM se propaga sin enmascarar.
+
+    Con MLFLOW_TRACKING_URI definido, cada reescritura real genera el span
+    ``rag.rewrite`` (consulta autónoma resultante); los fast-paths sin LLM
+    no generan spans.
+    """
+    if not history:
+        return question
+    transcript = format_history_transcript(history)
+    if not transcript:
+        return question
+    with trace_span(
+        "rag.rewrite",
+        {"question": question, "history_turns": len(history)},
+    ) as span:
+        chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        rewritten = str(
+            chain.invoke({"history": transcript, "question": question})
+        ).strip()
+        standalone = rewritten or question
+        record(span, outputs={"standalone_query": standalone})
+        return standalone
+
+
 class RAGPipeline:
     """
     Orquestador principal de AsesorIA.
@@ -91,10 +149,18 @@ class RAGPipeline:
             | StrOutputParser()
         )
 
-    def answer_query(self, question: str) -> Dict[str, Any]:
+    def answer_query(
+        self, question: str, history: Optional[List[Any]] = None
+    ) -> Dict[str, Any]:
         """
         Ejecuta el ciclo RAG completo para una pregunta dada,
         midiendo la latencia de retrieval y de generación.
+
+        ``history`` (opcional, cronológico, text-only, request-scoped): turnos
+        previos de la conversación actual. Se usa ÚNICAMENTE para resolver la
+        consulta autónoma antes del retrieval (query rewriting); nunca entra en
+        el prompt de generación ni sustituye a los documentos recuperados
+        (los documentos siguen siendo la única fuente factual).
 
         Retorna un diccionario con:
         - 'answer': Respuesta generada por el LLM.
@@ -103,11 +169,16 @@ class RAGPipeline:
         """
 
         import time
+
+        # 0. Resolución contextual: question + history → consulta autónoma
+        #    (sin historial: identidad, sin llamada al LLM)
+        standalone_query = resolve_standalone_query(self.llm, question, history)
+
         # 1. Medir latencia de recuperación (ChromaDB)
         t_retrieval_start = time.perf_counter()
 
-        # 1. Recuperar fragmentos relevantes mediante el retriever
-        retrieved_docs = self.retriever.invoke(question)
+        # 1. Recuperar fragmentos relevantes con la consulta resuelta
+        retrieved_docs = self.retriever.invoke(standalone_query)
 
         t_retrieval = round(time.perf_counter() - t_retrieval_start, 3)
 
@@ -115,8 +186,9 @@ class RAGPipeline:
         t_generation_start = time.perf_counter()
 
         # 2. Generar respuesta condicionada al contexto inyectado
+        #    (solo documentos recuperados + consulta; el historial no participa)
         generated_answer = self.generation_chain.invoke(
-            {"documents": retrieved_docs, "question": question}
+            {"documents": retrieved_docs, "question": standalone_query}
         )
 
         t_generation = round(time.perf_counter() - t_generation_start, 3)
