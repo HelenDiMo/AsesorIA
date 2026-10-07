@@ -66,11 +66,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: docs-site
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build documentation site (Docusaurus)
+        run: npm run build
+
   # CD ligera: solo en push a main, tras test + docker. Publica la imagen
   # en GHCR con tag sha-<commit> para despliegues trazables (Render).
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, docker]
+    needs: [test, docker, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

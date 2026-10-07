@@ -1,0 +1,35 @@
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.docList {
+  padding: 2.5rem 1rem;
+  max-width: 46rem;
+}
+
+.docList ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.docList li a {
+  display: block;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+}
+
+.docList li a:hover {
+  border-color: var(--ifm-color-primary);
+  text-decoration: none;
+}
