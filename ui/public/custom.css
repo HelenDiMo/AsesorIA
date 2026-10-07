@@ -344,3 +344,12 @@ hr {
     transition-duration: 0s !important;
   }
 }
+
+/* --- Login: se oculta el logo superior izquierdo ---------------------- *
+ * Petición de UX: ese logo no se ve bien en la pantalla de acceso. Solo
+ * se aplica mientras la pantalla de login está montada (su fondo es el
+ * ancla); al entrar en la app el logo de cabecera sigue comportándose
+ * como hasta ahora. */
+body:has(img[src*="login-bg"]) img.logo {
+  display: none !important;
+}
