@@ -46,6 +46,21 @@ chainlit run app.py        # http://localhost:8000
   pip install plotly
   ```
 
+### Docker
+
+```bash
+cp .env.example .env        # completa GROQ_API_KEY, CHAINLIT_AUTH_SECRET, OAuth…
+docker compose up --build   # http://localhost:8000
+```
+
+- El corpus indexado se monta desde `./chroma_db` (queda fuera de la imagen);
+  ajusta `CORPUS_RUN` y `CHROMA_COLLECTION` en `compose.yaml` a tu run con
+  estado `verified` (`python -m scripts.index_corpus --index`).
+- El modelo de embeddings E5 va horneado en la imagen. `.env`, `chroma_db/` y
+  `data/raw/*.pdf` quedan fuera del build (`.dockerignore`).
+- Imagen base `python:3.13-slim` con torch solo-CPU; el healthcheck usa el
+  endpoint `/health` de Chainlit.
+
 ---
 
 ## English
@@ -94,3 +109,18 @@ chainlit run app.py        # http://localhost:8000
   ```bash
   pip install plotly
   ```
+
+### Docker
+
+```bash
+cp .env.example .env        # set GROQ_API_KEY, CHAINLIT_AUTH_SECRET, OAuth…
+docker compose up --build   # http://localhost:8000
+```
+
+- The pre-indexed corpus is mounted from `./chroma_db` (kept out of the
+  image); set `CORPUS_RUN` and `CHROMA_COLLECTION` in `compose.yaml` to your
+  `verified` run (`python -m scripts.index_corpus --index`).
+- The E5 embedding model is baked into the image. `.env`, `chroma_db/` and
+  `data/raw/*.pdf` stay out of the build (`.dockerignore`).
+- Base image `python:3.13-slim` with CPU-only torch; the healthcheck hits
+  Chainlit's `/health` endpoint.

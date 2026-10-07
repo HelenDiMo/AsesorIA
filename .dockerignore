@@ -1,0 +1,31 @@
+# VCS / CI
+.git/
+.github/
+
+# Entornos virtuales y cachés
+.venv*/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets: NUNCA se hornean en la imagen
+.env
+.env.*
+!.env.example
+ui/.env
+
+# Artefactos de ejecución: se montan como volúmenes, no se copian
+chroma_db/
+data/raw/*.pdf
+data/processed/
+ui/.data/
+*.log
+
+# Material local no necesario en runtime
+.agent-local/
+.files/
+.data/
+**/.chainlit/translations/
+docs-site/

@@ -1,0 +1,33 @@
+# AsesorIA — ejecución local en contenedor.
+#
+#   docker compose up --build        →  http://localhost:8000
+#
+# Requisitos:
+#   * .env con GROQ_API_KEY (o exportada en el shell) y, si usas login,
+#     CHAINLIT_AUTH_SECRET / OAuth (ver .env.example);
+#   * un corpus indexado fuera del contenedor:
+#         python -m scripts.index_corpus --index
+#     y su id en CORPUS_RUN por defecto abajo (estado `verified`).
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Del shell o de .env (compose interpola ambos orígenes).
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      # Rutas DENTRO del contenedor. El bind mount monta ./chroma_db en
+      # /app/chroma_db; CORPUS_RUN es la carpeta del run indexado.
+      CORPUS_RUN: ${CORPUS_RUN:-ae121e0628ac4595b09cce0dbfb72205}
+      CHROMA_DIR: /app/chroma_db/corpus_runs/${CORPUS_RUN:-ae121e0628ac4595b09cce0dbfb72205}
+      # Colección provisional: no hay configuración ganadora validada.
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-corpus_384_48}
+    volumes:
+      # Corpus indexado (lectura/escritura: Chroma abre SQLite en RW).
+      - ./chroma_db:/app/chroma_db
+      # Persistencia de conversaciones de Chainlit (SQLite).
+      - ./ui/.data:/app/ui/.data
