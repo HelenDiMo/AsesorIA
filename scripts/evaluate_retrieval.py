@@ -1,5 +1,12 @@
-"""Compara referencias del benchmark; no genera respuestas ni elige ganador."""
+"""Compara referencias del benchmark; no genera respuestas ni elige ganador.
+
+Si ``MLFLOW_TRACKING_URI`` está definido, los agregados por colección y k se
+registran además como run ``retrieval-eval`` en MLflow (métricas + artefactos
+``results.json``/``summary.md``); sin esa variable el comportamiento es el
+histórico: solo archivos en disco.
+"""
 import argparse
+import os
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -113,6 +120,42 @@ def open_stores(manifest, settings):
     return stores
 
 
+def log_retrieval_to_mlflow(report, results, output: Path) -> None:
+    """Registro opcional (si MLFLOW_TRACKING_URI): run ``retrieval-eval``.
+
+    Sin LLM no hay coste de generación: se vuelcan tasas por colección y k,
+    tokens medios de contexto recuperado y los dos artefactos del informe.
+    """
+    if not os.environ.get("MLFLOW_TRACKING_URI", "").strip():
+        return
+    import mlflow
+    from src.common.tracing import DEFAULT_EXPERIMENT
+
+    mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"].strip())
+    mlflow.set_experiment(DEFAULT_EXPERIMENT)
+    with mlflow.start_run(run_name="retrieval-eval") as run:
+        mlflow.set_tags({
+            "eval.script": "scripts/evaluate_retrieval",
+            "eval.manifest_sha256": report["manifest_sha256"],
+            "eval.benchmark_sha256": report["benchmark_sha256"],
+            "eval.model": report["model"],
+            "eval.questions": len(next(iter(report["results"].values()))["questions"]),
+        })
+        metrics = {}
+        for name, result in results.items():
+            for row in result["summary"]:
+                k = row["k"]
+                for field in ("document_hit", "page_hit"):
+                    rate = row[field]["rate"]
+                    if rate is not None:
+                        metrics[f"{name}.{field}_rate@{k}"] = rate
+                metrics[f"{name}.mean_context_tokens@{k}"] = row["mean_text_tokens"]
+        mlflow.log_metrics(metrics)
+        mlflow.log_artifact(str(output / "results.json"))
+        mlflow.log_artifact(str(output / "summary.md"))
+    print(f"MLflow: run retrieval-eval {run.info.run_id}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
@@ -162,6 +205,7 @@ def main():
     (output / "summary.md").write_text(summary, encoding="utf-8")
     print(summary)
     print(f"Resultados: {output}")
+    log_retrieval_to_mlflow(report, results, output)
 
 
 if __name__ == "__main__":
