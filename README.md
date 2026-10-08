@@ -655,6 +655,8 @@ La abstención no significa que el sistema pueda detectar perfectamente todos lo
 
 La aplicación trabaja con información fiscal, por lo que el diseño debe considerar riesgos técnicos y de uso.
 
+Documento completo de ética y gobernanza: [`docs/ethics_governance.md`](docs/ethics_governance.md) (incluye la limitación de anonimización de PII exigida en [`docs/acceptance_criteria.md`](docs/acceptance_criteria.md)).
+
 ## Governance
 
 El proyecto mantiene separación entre:
@@ -1426,7 +1428,7 @@ Nunca se commitean secretos; `.env.example` documenta únicamente nombres.
 
 ## 25.9 Limitaciones y follow-ups de esta RC
 
-- **Abstención conservadora**: T3 de la demo abstiene a pesar de 8 documentos recuperados (comportamiento del modelo ante la duda, coherente con §8/§22.2; no es un fallo de retrieval).
+- **Abstención conservadora (causa combinada)**: T3 de la demo abstiene a pesar de 8 documentos recuperados (coherente con §8/§22.2). Un diagnóstico posterior con las queries reescritas reales matiza la atribución: la abstención es correcta dados los documentos recibidos, pero el retrieval no siempre alcanza la evidencia disponible — en T3 el mejor fragmento queda en la posición 9 y en T4 los fragmentos de «modelo 036/037» (presentes en el corpus) caen más allá del top-40 porque la consulta reescrita arrastra contexto de turnos anteriores. Follow-ups candidatos (no implementados): recuperación híbrida léxica+semántica o top-k ampliado, con evaluación previa.
 - **Evaluación**: faithfulness 2.67/5 proviene de una corrida pequeña de 3 preguntas.
 - **Cuota del proveedor LLM**: la demo sobre Groq free tier depende de una cuota diaria de tokens (TPD); pruebas guiadas largas deben planificarse en consecuencia.
 - **Pruebas de fluidez complementarias** (referencia corta, cambio de referencia, pregunta autónoma con contexto previo): ejecutadas parcialmente; pendiente de cierre o de documentación explícita como follow-up.
@@ -1976,6 +1978,8 @@ Abstention does not mean that the system can perfectly detect every ambiguous ca
 # 9. Governance, Ethics, Safety & Security
 
 Because the application deals with tax information, the design must account for technical and usage risks.
+
+Full ethics and governance document: [`docs/ethics_governance.md`](docs/ethics_governance.md) (includes the pending PII-anonymization limitation required by [`docs/acceptance_criteria.md`](docs/acceptance_criteria.md)).
 
 ## Governance
 
@@ -2748,7 +2752,7 @@ Secrets are never committed; `.env.example` documents names only.
 
 ## 25.9 Limitations and follow-ups of this RC
 
-- **Conservative abstention**: turn T3 of the demo abstains despite 8 retrieved documents (the model's behaviour under uncertainty, consistent with §8/§22.2; not a retrieval failure).
+- **Conservative abstention (combined cause)**: turn T3 of the demo abstains despite 8 retrieved documents (consistent with §8/§22.2). A later diagnosis using the actual rewritten queries refines the attribution: the abstention is correct given the documents provided, but retrieval does not always reach the available evidence — in T3 the best chunk ranks 9th, and in T4 the "form 036/037" chunks (present in the corpus) fall beyond the top-40 because the rewritten query drags in context from earlier turns. Candidate follow-ups (not implemented): hybrid lexical+semantic retrieval or a wider top-k, with prior evaluation.
 - **Evaluation**: faithfulness 2.67/5 comes from a small 3-question run.
 - **LLM provider quota**: the demo on Groq free tier depends on a daily token quota (TPD); long guided test sessions must be planned accordingly.
 - **Complementary fluency tests** (short reference, reference change, autonomous question with previous context): partially executed; pending closure or explicit documentation as a follow-up.
