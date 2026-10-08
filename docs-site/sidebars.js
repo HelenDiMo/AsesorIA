@@ -20,6 +20,8 @@ const sidebars = {
     'retrieval_evidence_review',
     'retrieval_benchmark_audit',
     'retrieval_review_complete',
+    'informe_mlflow',
+    'deploy_railway',
     'deploy_render',
     'ethics_governance',
   ],

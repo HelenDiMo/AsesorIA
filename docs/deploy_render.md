@@ -1,5 +1,9 @@
 # Despliegue en Render
 
+> **Nota**: la implementación activa actual es **Railway** →
+> [`deploy_railway.md`](deploy_railway.md). Este documento describe la
+> alternativa con `render.yaml`.
+
 AsesorIA se despliega como **Web Service con runtime Docker**: Render construye
 la imagen desde el `Dockerfile` del repositorio (o consume la imagen publicada
 en GHCR por el job `publish` de CI). La configuración declarativa está en

@@ -17,10 +17,11 @@ const config = {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
-  // URL canónica del sitio: ajustar al dominio final (p. ej.
-  // https://<proyecto>.pages.dev al crear el sitio en Cloudflare Pages).
-  url: 'https://YOUR-SITE.pages.dev',
-  baseUrl: '/',
+  // URL canónica y baseUrl de GitHub Pages (proyecto, no de usuario):
+  // https://HelenDiMo.github.io/AsesorIA/ — despliegue en
+  // .github/workflows/deploy-docs.yml (Settings → Pages → GitHub Actions).
+  url: 'https://HelenDiMo.github.io',
+  baseUrl: '/AsesorIA/',
 
   onBrokenLinks: 'warn',
 
@@ -88,6 +89,7 @@ const config = {
             title: 'Documentación',
             items: [
               {label: 'Criterios de aceptación', to: '/docs/acceptance_criteria'},
+              {label: 'Informe de evaluación (MLflow)', to: '/docs/informe_mlflow'},
               {label: 'Indexación del corpus', to: '/docs/corpus_indexing'},
               {label: 'Despliegue en Render', to: '/docs/deploy_render'},
             ],

@@ -86,6 +86,7 @@ FILE_ACCEPT = {
     "text/plain": [".txt", ".md"],
     "text/markdown": [".md"],
     "text/x-markdown": [".md"],
+    "*": [f".{ext}" for ext in sorted(ALLOWED_EXTENSIONS)],
 }
 
 

@@ -353,3 +353,25 @@ hr {
 body:has(img[src*="login-bg"]) img.logo {
   display: none !important;
 }
+
+/* --- Sidebar header icons (WCAG 1.4.11) ------------------------------ *
+ * Los botones de la cabecera dentro del sidebar heredan muted-foreground
+ * (rgb 99,110,94) sobre el verde del panel (rgb 24,53,39): 2.49:1, por
+ * debajo del mínimo 3:1 para controles gráficos. Se fija el color al
+ * token --sidebar-foreground (≥6:1). El alcance va acotado a .bg-sidebar
+ * porque sidebar-trigger-button y new-chat-button existen también fuera
+ * del panel (sobre bg-background, donde su color por defecto ya supera
+ * 4,8:1). En hover el botón pinta --accent (arena clara en tema claro):
+ * ahí el crema no vale (1,09:1) y se usa --accent-foreground (13:1 en
+ * claro, 5,9:1 en oscuro). */
+.bg-sidebar #sidebar-trigger-button,
+.bg-sidebar #search-chats-button,
+.bg-sidebar #new-chat-button {
+  color: hsl(var(--sidebar-foreground, 40 20% 96%));
+}
+
+.bg-sidebar #sidebar-trigger-button:hover,
+.bg-sidebar #search-chats-button:hover,
+.bg-sidebar #new-chat-button:hover {
+  color: hsl(var(--accent-foreground, 150 15% 12%));
+}

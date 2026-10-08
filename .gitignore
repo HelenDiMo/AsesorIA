@@ -30,3 +30,4 @@ Thumbs.db
 # MLflow local (tracing/eval; ver src/common/tracing.py)
 mlruns/
 mlflow.db
+results.xml

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS steps (
   "language" TEXT,
   "indent" INTEGER,
   "defaultOpen" BOOLEAN,
+  "autoCollapse" BOOLEAN,
   "modes" TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_steps_thread ON steps ("threadId");
@@ -95,12 +96,23 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 """
 
 
+SCHEMA_MIGRATIONS: dict[str, dict[str, str]] = {
+    "steps": {"autoCollapse": "BOOLEAN DEFAULT FALSE"},
+}
+
+
 def ensure_sqlite_schema(path: Path | str) -> None:
-    """Create the Chainlit schema if missing (idempotent, no side effects)."""
+    """Create the Chainlit schema and add columns newer Chainlit releases
+    expect (idempotent, no side effects)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as con:
         con.executescript(DDL)
+        for table, columns in SCHEMA_MIGRATIONS.items():
+            existing = {row[1] for row in con.execute(f'PRAGMA table_info("{table}")')}
+            for column, decl in columns.items():
+                if column not in existing:
+                    con.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {decl}')
 
 
 def _encode_tags(tags: Any) -> Any:

@@ -59,7 +59,7 @@ reaction_on_message_received = false
     enabled = true
     # Define accepted file types using MIME types
     # Documentación fiscal soportada: PDF, TXT y Markdown
-    accept = ["application/pdf", "text/plain", "text/markdown", "text/x-markdown"]
+    accept = { "application/pdf" = [".pdf"], "text/plain" = [".txt", ".md"], "text/markdown" = [".md"], "text/x-markdown" = [".md"], "*" = [".md", ".pdf", ".txt"] }
     max_files = 5
     max_size_mb = 50
 
