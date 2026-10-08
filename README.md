@@ -106,7 +106,7 @@ El proyecto utiliza fuentes documentales públicas y oficiales, lo que permite r
 
 # Presentación y demo de la release candidate
 
-> Esta sección resume la versión incluida en **esta rama** (`feat/conversational-rag`). Las secciones 1-24 documentan la base del sistema. Todo lo marcado como *implementado en esta release candidate* existe en esta rama y está validado en local; **no implica que esté integrado en `main`**.
+> Esta sección resume la release candidate integrada en **`main`** tras la fusión de `feat/conversational-rag` (PR #38). Las secciones 1-24 documentan la base del sistema. Todo lo marcado como *implementado en esta release candidate* está en `main`, es lo que ejecuta CI y es lo que se despliega (§25.4).
 
 ## ¿Qué es? ¿Qué problema resuelve? ¿Qué lo diferencia?
 
@@ -170,7 +170,7 @@ Puntos que demuestra la demo:
 - **Abstención honesta** (T3): el modelo prefiere no afirmar ante la duda — ver §8 y §25.9.
 - **Latencia por turno** visible: 1.7-26.7 s según la consulta.
 
-No hay URL pública desplegada; la demo se ejecuta localmente con Docker (ver *Cómo se ejecuta*).
+Demo desplegada en Railway: https://asesoria-production-8b69.up.railway.app; también puede ejecutarse localmente con Docker (ver *Cómo se ejecuta*).
 
 ## Cómo se ejecuta
 
@@ -224,7 +224,7 @@ cd ui && chainlit run app.py
             Sources / UX (latencia, citas)
 ```
 
-Capas auxiliares (fuera del flujo principal): **Docker** · **CI/CD (GitHub Actions + GHCR)** · **Render** · **Docusaurus** · **MLflow**.
+Capas auxiliares (fuera del flujo principal): **Docker** · **CI/CD (GitHub Actions + GHCR)** · **Railway** · **Render** · **Docusaurus** · **MLflow**.
 
 ## Stack
 
@@ -240,13 +240,13 @@ Capas auxiliares (fuera del flujo principal): **Docker** · **CI/CD (GitHub Acti
 | Containers | Docker / Compose | Runtime reproducible |
 | CI/CD | GitHub Actions | Tests, build de imagen, docs |
 | Registry | GHCR | Imágenes de contenedor |
-| Deployment | Render | Cloud runtime (blueprint) |
+| Deployment | Railway (activo) · Render (blueprint) | Cloud runtime |
 | Documentation | Docusaurus | Sitio técnico (`docs-site/`) |
 | Observability | MLflow | Tracing y evaluación RAG |
 
 ## Cómo se valida
 
-- **Suite automatizada**: `python -m pytest tests/ -q` → **482 passed, 5 skipped** en esta rama (ingesta, chunking, retrieval, pipeline conversacional, seguridad, UI, contratos).
+- **Suite automatizada**: `python -m pytest tests/ -q` → **501 passed, 5 skipped** en `main` (ingesta, chunking, retrieval, pipeline conversacional, seguridad, UI, contratos).
 - **Benchmark de retrieval**: 40 preguntas con documento/página esperados (`data/eval/benchmark.json` + `scripts/evaluate_retrieval.py`).
 - **Conversación E2E**: hilo Q1→Q5 + pregunta aislada en sesión nueva (la demo de arriba).
 - **Evaluación RAG**: `scripts/evaluate_rag_mlflow.py` con LLM-as-judge (faithfulness / relevance) registrada en MLflow.
@@ -255,10 +255,11 @@ Capas auxiliares (fuera del flujo principal): **Docker** · **CI/CD (GitHub Acti
 ## Cómo se despliega
 
 ```text
-GitHub → GitHub Actions (CI) → imagen Docker → GHCR → Render
+GitHub (main) → GitHub Actions (CI) → tests + imagen Docker → GHCR
+GitHub (main) → Railway (builder: Dockerfile) → https://asesoria-production-8b69.up.railway.app
 ```
 
-Configuración real en `.github/workflows/ci.yml` y `render.yaml` (procedimiento completo en §25.3-§25.4 y `docs/deploy_render.md`). No se publica ninguna URL hasta que exista una despliegue verificado.
+Despliegue activo en **Railway** (§25.4 y `docs/deploy_railway.md`): servicio conectado a `main`, builder `Dockerfile`, health check `/health`, volumen en `/app/chroma_db`. El blueprint alternativo de Render sigue documentado en `render.yaml` y `docs/deploy_render.md`.
 
 ---
 
@@ -1020,7 +1021,7 @@ Entre las áreas cubiertas se encuentran:
 * pipeline conversacional (rewriting, historial y sesión);
 * retriever (banda de umbral para consultas conversacionales).
 
-En esta release candidate la suite completa da **482 passed, 5 skipped**.
+En esta release candidate la suite completa da **501 passed, 5 skipped**.
 
 La existencia de tests no implica que el sistema esté libre de errores; su objetivo es detectar regresiones y verificar contratos y comportamientos definidos.
 
@@ -1166,6 +1167,7 @@ La funcionalidad de **subida dinámica de documentos por parte del usuario final
 | Conversational RAG (rewriting)         | Implementado en esta release candidate                     |
 | Docker / Docker Compose                | Implementado en esta release candidate                     |
 | CI/CD con publicación GHCR             | Implementada en esta release candidate                     |
+| Despliegue en Railway (activo)         | Desplegado con URL pública (https://asesoria-production-8b69.up.railway.app) — §25.4 |
 | Configuración de despliegue (Render)   | Validada (sin URL pública) — §25.4                          |
 | Docusaurus                             | Implementado en esta release candidate                     |
 | MLflow (tracing y evaluación)          | Implementado en esta release candidate                     |
@@ -1371,7 +1373,17 @@ push a main (tras los 3 jobs)
 
 Credenciales dummy en CI: ningún secreto personal se usa para ejecutar la suite.
 
-## 25.4 Despliegue en Render
+## 25.4 Despliegue
+
+### Railway (despliegue activo)
+
+- servicio conectado al repositorio `HelenDiMo/AsesorIA`, rama `main`, builder **Dockerfile** (`/Dockerfile`), región US East (`iad`), 1 réplica;
+- recursos del plan de prueba: **1 GB RAM** (la app consume ≈831 MB en reposo; con 512 MB haría OOM) y volumen de **500 MB** en `/app/chroma_db` (corpus indexado + `chainlit.db`);
+- *custom start command* con bootstrap del corpus: descarga el índice ya indexado desde Hugging Face la primera vez y arranca `chainlit run app.py` (procedimiento completo en [`docs/deploy_railway.md`](docs/deploy_railway.md));
+- health check `/health`; secretos (`GROQ_API_KEY`, OAuth, `CHAINLIT_AUTH_SECRET`) en *Variables* del dashboard, nunca en Git;
+- URL pública: **https://asesoria-production-8b69.up.railway.app** — callback de OAuth en Google Console: `https://asesoria-production-8b69.up.railway.app/auth/oauth/google/callback`.
+
+### Render (blueprint alternativo)
 
 `render.yaml` (blueprint, no cambios cosméticos):
 
@@ -1380,7 +1392,7 @@ Credenciales dummy en CI: ningún secreto personal se usa para ejecutar la suite
 - secretos (`GROQ_API_KEY`, OAuth) rellenados en el dashboard con `sync: false` — nunca se commitean; `CHAINLIT_AUTH_SECRET` se genera automáticamente;
 - procedimiento completo en [`docs/deploy_render.md`](docs/deploy_render.md).
 
-No hay URL pública desplegada: no se publica ninguna hasta que exista.
+No hay URL pública desplegada en Render: no se publica ninguna hasta que exista.
 
 ## 25.5 Documentación con Docusaurus
 
@@ -1430,8 +1442,8 @@ Nunca se commitean secretos; `.env.example` documenta únicamente nombres.
 - **Evaluación**: faithfulness 2.67/5 proviene de una corrida pequeña de 3 preguntas.
 - **Cuota del proveedor LLM**: la demo sobre Groq free tier depende de una cuota diaria de tokens (TPD); pruebas guiadas largas deben planificarse en consecuencia.
 - **Pruebas de fluidez complementarias** (referencia corta, cambio de referencia, pregunta autónoma con contexto previo): ejecutadas parcialmente; pendiente de cierre o de documentación explícita como follow-up.
-- **Sin URL pública**: no hay despliegue verificado publicado.
-- **Integración con `main`**: queda pendiente y se decidirá fuera de esta RC (comparación de ramas en el informe de entrega).
+- **URL pública**: despliegue verificado en Railway — https://asesoria-production-8b69.up.railway.app (§25.4).
+- **Integración con `main`**: completada — PR #38 (`feat/conversational-rag`) fusionado; `main` es la rama desplegable y la que usa Railway.
 
 ---
 
@@ -1439,7 +1451,7 @@ Nunca se commitean secretos; `.env.example` documenta únicamente nombres.
 
 # Presentation and demo of the release candidate
 
-> This section summarizes the version included in **this branch** (`feat/conversational-rag`). Sections 1-24 document the system base. Everything marked as *implemented in this release candidate* exists in this branch and is validated locally; **it does not imply integration into `main`**.
+> This section summarizes the release candidate integrated into **`main`** after merging `feat/conversational-rag` (PR #38). Sections 1-24 document the system base. Everything marked as *implemented in this release candidate* is on `main`, is what CI runs and what gets deployed (§25.4).
 
 ## What is it? What problem does it solve? What makes it different?
 
@@ -1503,7 +1515,7 @@ What the demo demonstrates:
 - **Honest abstention** (T3): the model prefers not to claim when unsure — see §8 and §25.9.
 - **Per-turn latency** visible: 1.7-26.7 s depending on the query.
 
-No public URL is deployed; run the demo locally with Docker (see *How to run it*).
+Demo deployed on Railway: https://asesoria-production-8b69.up.railway.app; it can also run locally with Docker (see *How to run it*).
 
 ## How to run it
 
@@ -1557,7 +1569,7 @@ cd ui && chainlit run app.py
             Sources / UX (latency, citations)
 ```
 
-Supporting layers (outside the main flow): **Docker** · **CI/CD (GitHub Actions + GHCR)** · **Render** · **Docusaurus** · **MLflow**.
+Supporting layers (outside the main flow): **Docker** · **CI/CD (GitHub Actions + GHCR)** · **Railway** · **Render** · **Docusaurus** · **MLflow**.
 
 ## Stack
 
@@ -1573,13 +1585,13 @@ Supporting layers (outside the main flow): **Docker** · **CI/CD (GitHub Actions
 | Containers | Docker / Compose | Reproducible runtime |
 | CI/CD | GitHub Actions | Tests, image build, docs |
 | Registry | GHCR | Container images |
-| Deployment | Render | Cloud runtime (blueprint) |
+| Deployment | Railway (active) · Render (blueprint) | Cloud runtime |
 | Documentation | Docusaurus | Technical site (`docs-site/`) |
 | Observability | MLflow | Tracing and RAG evaluation |
 
 ## How it is validated
 
-- **Automated suite**: `python -m pytest tests/ -q` → **482 passed, 5 skipped** on this branch (ingestion, chunking, retrieval, conversational pipeline, security, UI, contracts).
+- **Automated suite**: `python -m pytest tests/ -q` → **501 passed, 5 skipped** on `main` (ingestion, chunking, retrieval, conversational pipeline, security, UI, contracts).
 - **Retrieval benchmark**: 40 questions with expected document/page (`data/eval/benchmark.json` + `scripts/evaluate_retrieval.py`).
 - **E2E conversation**: Q1→Q5 thread plus an isolated question in a new session (the demo above).
 - **RAG evaluation**: `scripts/evaluate_rag_mlflow.py` with LLM-as-judge (faithfulness / relevance) recorded in MLflow.
@@ -1588,10 +1600,11 @@ Supporting layers (outside the main flow): **Docker** · **CI/CD (GitHub Actions
 ## How it is deployed
 
 ```text
-GitHub → GitHub Actions (CI) → Docker image → GHCR → Render
+GitHub (main) → GitHub Actions (CI) → tests + Docker image → GHCR
+GitHub (main) → Railway (builder: Dockerfile) → https://asesoria-production-8b69.up.railway.app
 ```
 
-Real configuration in `.github/workflows/ci.yml` and `render.yaml` (full procedure in §25.3-§25.4 and `docs/deploy_render.md`). No URL is published until a verified deployment exists.
+Active deployment on **Railway** (§25.4 and `docs/deploy_railway.md`): service connected to `main`, `Dockerfile` builder, `/health` check, volume at `/app/chroma_db`. The alternative Render blueprint remains documented in `render.yaml` and `docs/deploy_render.md`.
 
 ---
 
@@ -2342,7 +2355,7 @@ Covered areas include:
 * conversational pipeline (rewriting, history and session);
 * retriever (threshold band for conversational queries).
 
-On this release candidate the full suite reports **482 passed, 5 skipped**.
+On this release candidate the full suite reports **501 passed, 5 skipped**.
 
 Tests do not imply that the system is error-free; their purpose is to detect regressions and verify defined contracts and behaviors.
 
@@ -2488,6 +2501,7 @@ The requirement for **dynamic document upload by end users** should not be consi
 | Conversational RAG (rewriting)        | Implemented in this release candidate                                |
 | Docker / Docker Compose               | Implemented in this release candidate                                |
 | CI/CD with GHCR publishing            | Implemented in this release candidate                                |
+| Railway deployment (active)             | Deployed with public URL (https://asesoria-production-8b69.up.railway.app) — §25.4 |
 | Deployment configuration (Render)     | Validated (no public URL) — §25.4                                     |
 | Docusaurus                            | Implemented in this release candidate                                |
 | MLflow (tracing and evaluation)       | Implemented in this release candidate                                |
@@ -2693,7 +2707,17 @@ push to main (after the 3 jobs)
 
 Dummy credentials in CI: no personal secret is used to run the suite.
 
-## 25.4 Deployment on Render
+## 25.4 Deployment
+
+### Railway (active deployment)
+
+- service connected to the `HelenDiMo/AsesorIA` repository, branch `main`, **Dockerfile** builder (`/Dockerfile`), US East region (`iad`), 1 replica;
+- trial-plan resources: **1 GB RAM** (the app uses ≈831 MB idle; 512 MB would OOM) and a **500 MB** volume at `/app/chroma_db` (indexed corpus + `chainlit.db`);
+- *custom start command* with corpus bootstrap: downloads the already-indexed index from Hugging Face on first boot and starts `chainlit run app.py` (full procedure in [`docs/deploy_railway.md`](docs/deploy_railway.md));
+- `/health` health check; secrets (`GROQ_API_KEY`, OAuth, `CHAINLIT_AUTH_SECRET`) in the dashboard *Variables*, never in Git;
+- public URL: **https://asesoria-production-8b69.up.railway.app** — OAuth callback in Google Console: `https://asesoria-production-8b69.up.railway.app/auth/oauth/google/callback`.
+
+### Render (alternative blueprint)
 
 `render.yaml` (blueprint, no cosmetic changes):
 
@@ -2702,7 +2726,7 @@ Dummy credentials in CI: no personal secret is used to run the suite.
 - secrets (`GROQ_API_KEY`, OAuth) filled in the dashboard with `sync: false` — never committed; `CHAINLIT_AUTH_SECRET` is auto-generated;
 - full procedure in [`docs/deploy_render.md`](docs/deploy_render.md).
 
-No public URL is deployed: none is published until one exists.
+No public URL is deployed on Render: none is published until one exists.
 
 ## 25.5 Documentation with Docusaurus
 
@@ -2752,5 +2776,5 @@ Secrets are never committed; `.env.example` documents names only.
 - **Evaluation**: faithfulness 2.67/5 comes from a small 3-question run.
 - **LLM provider quota**: the demo on Groq free tier depends on a daily token quota (TPD); long guided test sessions must be planned accordingly.
 - **Complementary fluency tests** (short reference, reference change, autonomous question with previous context): partially executed; pending closure or explicit documentation as a follow-up.
-- **No public URL**: no verified deployment is published.
-- **Integration with `main`**: deferred and to be decided outside this RC (branch comparison in the delivery report).
+- **Public URL**: verified deployment on Railway — https://asesoria-production-8b69.up.railway.app (§25.4).
+- **Integration with `main`**: completed — PR #38 (`feat/conversational-rag`) merged; `main` is the deployable branch and the one Railway uses.

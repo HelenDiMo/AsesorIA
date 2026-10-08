@@ -20,6 +20,7 @@ const sidebars = {
     'retrieval_evidence_review',
     'retrieval_benchmark_audit',
     'retrieval_review_complete',
+    'deploy_railway',
     'deploy_render',
     'ethics_governance',
   ],
